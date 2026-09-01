@@ -1,0 +1,31 @@
+# Virtual environment
+.venv/
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test and coverage files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / editor files
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local database files
+*.sqlite3
+*.db
