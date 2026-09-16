@@ -64,49 +64,50 @@ def main():
         len(result["verified_sources"])
     )
 
-    print()
-    print("===== QUALIFICATION RESULTS =====")
+    print(
+        "Company scores:",
+        len(result["company_scores"])
+    )
 
-    for qualification in result["company_qualifications"]:
+    print(
+        "Final report stored:",
+        bool(result["final_report"])
+    )
+
+    print(
+        "Final report length:",
+        len(result["final_report"])
+    )
+
+    print()
+    print("===== COMPANY SCORES =====")
+
+    for score in result["company_scores"]:
 
         print()
-        print("Company:", qualification["company_name"])
         print(
-            "AI focused:",
-            qualification["is_ai_focused"]
-        )
-        print(
-            "Indian:",
-            qualification["is_indian"]
-        )
-        print(
-            "Startup:",
-            qualification["is_startup"]
-        )
-        print(
-            "AI is core business:",
-            qualification["ai_is_core_business"]
-        )
-        print(
-            "Should research:",
-            qualification["should_research"]
-        )
-        print(
-            "Confidence:",
-            qualification["qualification_confidence"]
-        )
-        print(
-            "Reason:",
-            qualification["reason"]
+            "Company:",
+            score["company_name"]
         )
 
-        print("Evidence:")
+        print(
+            "Overall score:",
+            score["overall_score"]
+        )
 
-        for evidence in qualification["evidence"]:
-            print(
-                " -",
-                evidence
-            )
+        print(
+            "Reasoning:",
+            score["reasoning"]
+        )
+
+    print()
+    print("===== FINAL REPORT PREVIEW =====")
+    print()
+
+    print(
+        result["final_report"][:1000]
+    )
+
 
 if __name__ == "__main__":
     main()

@@ -39,40 +39,64 @@ class ResearchState(BaseModel):
 
     question: str
 
-    research_topics: List[str] = Field(default_factory=list)
+    research_topics: List[str] = Field(
+        default_factory=list
+    )
 
     companies_to_research: Annotated[
         List[str],
         merge_unique_strings
-    ] = Field(default_factory=list)
+    ] = Field(
+        default_factory=list
+    )
 
-    search_queries: List[str] = Field(default_factory=list)
+    search_queries: List[str] = Field(
+        default_factory=list
+    )
 
     market_sources: Annotated[
         List[Dict],
         merge_lists
-    ] = Field(default_factory=list)
+    ] = Field(
+        default_factory=list
+    )
 
     company_sources: Annotated[
         List[Dict],
         merge_lists
-    ] = Field(default_factory=list)
+    ] = Field(
+        default_factory=list
+    )
 
     funding_sources: Annotated[
         List[Dict],
         merge_lists
-    ] = Field(default_factory=list)
+    ] = Field(
+        default_factory=list
+    )
 
     sources: Annotated[
         List[Dict],
         merge_lists
-    ] = Field(default_factory=list)
+    ] = Field(
+        default_factory=list
+    )
 
-    verified_sources: List[Dict] = Field(default_factory=list)
+    verified_sources: List[Dict] = Field(
+        default_factory=list
+    )
 
-    company_qualifications: List[Dict] = Field(default_factory=list)
+    company_qualifications: List[Dict] = Field(
+        default_factory=list
+    )
 
-    company_scores: List[Dict] = Field(default_factory=list)
+    company_scores: List[Dict] = Field(
+        default_factory=list
+    )
+
+    company_scores: List[Dict] = Field(
+        default_factory=list
+    )
 
     final_report: str = ""
 

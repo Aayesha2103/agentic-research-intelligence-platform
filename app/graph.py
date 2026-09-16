@@ -9,6 +9,8 @@ from app.agents.company_discovery import company_discovery_node
 from app.agents.company_qualifier import company_qualification_node
 from app.agents.company_researcher import company_research_node
 from app.agents.verifier import source_verifier_node
+from app.agents.scorer import scoring_node
+from app.agents.synthesizer import synthesizer_node
 
 
 def build_research_graph():
@@ -50,6 +52,16 @@ def build_research_graph():
     graph.add_node(
         "source_verifier",
         source_verifier_node
+    )
+
+    graph.add_node(
+        "scorer",
+        scoring_node
+    )
+
+    graph.add_node(
+        "synthesizer",
+        synthesizer_node
     )
 
     # Start with the Planner
@@ -108,6 +120,16 @@ def build_research_graph():
 
     graph.add_edge(
         "source_verifier",
+        "scorer"
+    )
+
+    graph.add_edge(
+        "scorer",
+        "synthesizer"
+    )
+
+    graph.add_edge(
+        "synthesizer",
         END
     )
 

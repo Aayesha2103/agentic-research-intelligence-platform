@@ -4,36 +4,77 @@ from app.agents.company_discovery import company_discovery_node
 
 def main():
 
-    state = ResearchState(
-        question="Analyze the Indian AI startup market.",
-        sources=[
+    print("===== COMPANY DISCOVERY LARGE-INPUT TEST =====")
+    print()
+
+    sources = []
+
+    for i in range(160):
+
+        relevance_score = 0.50 + (i % 50) / 100
+
+        sources.append(
             {
-                "title": "Top Indian AI Startups",
-                "content": """
-                Haptik is an Indian conversational AI company.
-                Sarvam AI is an Indian AI startup building generative
-                AI models and applications.
-                Infosys provides AI services to enterprise customers.
-                """
-            },
-            {
-                "title": "Indian AI Startup Ecosystem",
-                "content": """
-                Indian AI startups include Haptik and Sarvam AI.
-                Several established IT companies also invest in AI.
-                """
+                "title": f"Indian AI Startup Research {i + 1}",
+                "content": (
+                    "Indian AI startup ecosystem research "
+                    "covering artificial intelligence companies "
+                    "and startup funding."
+                ),
+                "url": f"https://example.com/source-{i + 1}",
+                "relevance_score": relevance_score,
             }
-        ]
+        )
+
+    state = ResearchState(
+        question=(
+            "Analyze the Indian AI startup market "
+            "and tell me which companies are most promising."
+        )
     )
+
+    state.sources = sources
+
+    print(
+        "Sources provided to discovery:",
+        len(state.sources)
+    )
+
+    print(
+        "Highest relevance score:",
+        max(
+            source["relevance_score"]
+            for source in state.sources
+        )
+    )
+
+    print(
+        "Lowest relevance score:",
+        min(
+            source["relevance_score"]
+            for source in state.sources
+        )
+    )
+
+    print()
+    print("[1] Running company discovery...")
+    print()
 
     result = company_discovery_node(state)
 
-    print("===== COMPANY DISCOVERY TEST =====")
     print()
-    print("Discovered companies:")
+    print("===== DISCOVERY RESULT =====")
+    print()
 
-    for company in result["companies_to_research"]:
-        print("-", company)
+    print(
+        "Companies discovered:",
+        result["companies_to_research"]
+    )
+
+    print(
+        "Number of companies:",
+        len(result["companies_to_research"])
+    )
 
 
 if __name__ == "__main__":

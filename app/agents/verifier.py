@@ -7,9 +7,6 @@ def classify_evidence(source: dict) -> str:
     """
     Classifies a source according to the type of evidence
     it most likely contains.
-
-    Search query and title are given higher priority
-    than the full article content.
     """
 
     query = source.get("query", "").lower()
@@ -101,66 +98,59 @@ def classify_evidence(source: dict) -> str:
     ):
         return "growth"
 
-    content_keywords = {
-        "funding": [
-            "funding round",
-            "raised",
-            "investment",
-            "investor",
-        ],
-        "customers": [
-            "customer",
-            "client",
-            "partnership",
-            "deployment",
-        ],
-        "product": [
-            "product launch",
-            "ai platform",
-            "machine learning platform",
-            "technology",
-        ],
-        "policy": [
-            "government policy",
-            "government initiative",
-            "regulation",
-            "ministry",
-        ],
-        "market": [
-            "market size",
-            "startup ecosystem",
-            "industry growth",
-        ],
-        "growth": [
-            "revenue growth",
-            "user growth",
-            "business growth",
-        ],
-    }
-
-    for evidence_type, keywords in content_keywords.items():
-        if any(keyword in content for keyword in keywords):
-            return evidence_type
-
     return "general"
 
 
-def source_verifier_node(state: ResearchState) -> ResearchState:
+def get_domain(url: str) -> str:
+    """
+    Extracts the hostname from a URL.
+    """
+
+    parsed_url = urlparse(url)
+
+    hostname = parsed_url.hostname or ""
+
+    return hostname.lower()
+
+
+def calculate_source_quality(
+    relevance_score: float,
+    domain_trusted: bool
+) -> float:
+    """
+    Calculates the final quality score for a source.
+
+    Tavily relevance provides the base score.
+    Trusted domains receive a small quality bonus.
+    """
+
+    quality_score = relevance_score
+
+    if domain_trusted:
+        quality_score += 0.10
+
+    return min(
+        quality_score,
+        1.0
+    )
+
+
+def source_verifier_node(
+    state: ResearchState
+) -> ResearchState:
     """
     Source Verification Agent.
 
     Combines sources collected by all research agents
     and evaluates their quality using:
-    - search relevance
+
+    - URL validation
     - domain trust
     - blocked-source rules
+    - relevance score
     - evidence classification
-    - URL-based deduplication
-
-    The strongest sources are kept and ranked first.
+    - URL deduplication
     """
-
-    verified_sources = []
 
     trusted_domains = {
         "gov.in",
@@ -187,85 +177,134 @@ def source_verifier_node(state: ResearchState) -> ResearchState:
 
     all_sources = []
 
+    # Add general research sources
+
     for source in state.sources:
+
         source_copy = source.copy()
+
         source_copy["source_type"] = "general"
+
         all_sources.append(source_copy)
+
+    # Add market research sources
 
     for source in state.market_sources:
+
         source_copy = source.copy()
+
         source_copy["source_type"] = "market"
+
         all_sources.append(source_copy)
 
+    # Add company research sources
+
     for source in state.company_sources:
+
         source_copy = source.copy()
+
         source_copy["source_type"] = "company"
+
         all_sources.append(source_copy)
+
+    # Remove duplicate URLs
 
     unique_sources = {}
 
     for source in all_sources:
+
         url = source.get("url", "").strip()
 
         if not url:
             continue
 
         if url not in unique_sources:
+
             unique_sources[url] = source
+
         else:
+
             existing_source = unique_sources[url]
 
             if (
                 source.get("relevance_score", 0.0)
-                > existing_source.get("relevance_score", 0.0)
+                >
+                existing_source.get(
+                    "relevance_score",
+                    0.0
+                )
             ):
+
                 unique_sources[url] = source
 
+    verified_sources = []
+
     for source in unique_sources.values():
-        url = source.get("url", "")
-        relevance_score = source.get("relevance_score", 0.0)
 
-        parsed_url = urlparse(url)
+        url = source.get("url", "").strip()
 
-        hostname = parsed_url.hostname or ""
-        hostname = hostname.lower()
+        relevance_score = source.get(
+            "relevance_score",
+            0.0
+        )
+
+        domain = get_domain(url)
 
         domain_trusted = any(
-            hostname == domain
-            or hostname.endswith("." + domain)
-            for domain in trusted_domains
+            domain == trusted_domain
+            or domain.endswith(
+                "." + trusted_domain
+            )
+            for trusted_domain in trusted_domains
         )
 
         domain_blocked = any(
-            hostname == domain
-            or hostname.endswith("." + domain)
-            for domain in blocked_domains
+            domain == blocked_domain
+            or domain.endswith(
+                "." + blocked_domain
+            )
+            for blocked_domain in blocked_domains
         )
+
+        # Reject blocked domains
 
         if domain_blocked:
             continue
 
-        source_quality_score = relevance_score
+        source_quality_score = calculate_source_quality(
+            relevance_score,
+            domain_trusted
+        )
 
-        if domain_trusted:
-            source_quality_score += 0.10
+        # Keep only sufficiently relevant sources
 
         if source_quality_score < 0.75:
             continue
 
+        source["domain"] = domain
+
         source["domain_trusted"] = domain_trusted
+
         source["domain_blocked"] = domain_blocked
-        source["source_quality_score"] = min(
-            source_quality_score,
-            1.0
+
+        source["source_quality_score"] = (
+            source_quality_score
         )
 
-        source["evidence_type"] = classify_evidence(source)
+        source["evidence_type"] = classify_evidence(
+            source
+        )
+
+        source["verification_status"] = "verified"
 
         verified_sources.append(source)
 
+    # Strongest sources first
+
     verified_sources.sort(
-        key=lambda source: source["source_quality_score"],
+        key=lambda source: source[
+            "source_quality_score"
+        ],
         reverse=True
     )
 
