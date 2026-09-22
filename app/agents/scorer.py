@@ -2,6 +2,7 @@ import json
 
 from app.models.state import ResearchState
 from app.services.llm import get_llm
+from app.services.llm_usage import extract_usage
 
 
 SCORING_CATEGORIES = [
@@ -14,612 +15,235 @@ SCORING_CATEGORIES = [
 ]
 
 
-def get_evidence_for_company(
-    evidence: list[dict],
-    company_name: str,
-) -> list[dict]:
-
-    company_key = (
-        company_name.strip().lower()
-    )
-
-    return [
-        item
-        for item in evidence
-        if item.get(
-            "company",
-            "",
-        ).strip().lower()
-        == company_key
-    ]
-
-
-def calculate_supported_overall_score(
-    company: dict,
-    supported_categories: list[str],
-) -> float:
-
-    if not supported_categories:
-        return 0.0
-
-    scores = []
-
-    for category in supported_categories:
-
-        value = float(
-            company.get(
-                category,
-                0.0,
-            )
-        )
-
-        value = max(
-            0.0,
-            min(10.0, value),
-        )
-
-        scores.append(value)
-
-    return round(
-        sum(scores) / len(scores),
-        2,
-    )
-
-
-def calculate_evidence_adjusted_score(
-    supported_score: float,
-    supported_category_count: int,
-) -> float:
-
-    total_categories = len(
-        SCORING_CATEGORIES
-    )
-
-    evidence_coverage = (
-        supported_category_count
-        / total_categories
-    )
-
-    adjusted_score = (
-        supported_score
-        * evidence_coverage
-    )
-
-    return round(
-        adjusted_score,
-        2,
-    )
-
-
-def build_evidence(
+def build_company_evidence(
     state: ResearchState,
+    company: str,
 ) -> list[dict]:
+    """Collect only evidence belonging to the requested company."""
 
     evidence = []
 
     for source in state.verified_sources:
-
-        company = source.get(
+        source_company = source.get(
             "company",
-            source.get(
-                "company_name",
-                "",
-            ),
-        )
+            source.get("company_name", ""),
+        ).strip()
 
-        if not company:
-            continue
-
-        evidence.append({
-            "company": company,
-            "title": source.get(
-                "title",
-                "",
-            ),
-            "content": source.get(
-                "content",
-                "",
-            ),
-            "evidence_type": source.get(
-                "evidence_type",
-                "general",
-            ),
-            "url": source.get(
-                "url",
-                "",
-            ),
-            "verification_status": source.get(
-                "verification_status",
-                "unknown",
-            ),
-        })
+        if source_company.lower() == company.lower():
+            evidence.append(source)
 
     for document in state.retrieved_documents:
-
-        company = document.get(
+        document_company = document.get(
             "company_name",
             "",
-        )
+        ).strip()
 
-        if not company:
-            continue
-
-        evidence.append({
-            "company": company,
-            "title": document.get(
-                "source_title",
-                "",
-            ),
-            "content": document.get(
-                "content",
-                "",
-            ),
-            "evidence_type": document.get(
-                "evidence_type",
-                "general",
-            ),
-            "url": document.get(
-                "source_url",
-                "",
-            ),
-            "verification_status": "rag",
-        })
+        if document_company.lower() == company.lower():
+            evidence.append(document)
 
     return evidence
 
 
-def build_compact_evidence_text(
-    companies: list[str],
-    evidence: list[dict],
-) -> str:
+def parse_score_response(response) -> dict:
+    """Convert the LLM response into a Python dictionary."""
 
-    sections = []
+    content = response.content
 
-    for company in companies:
-
-        company_evidence = (
-            get_evidence_for_company(
-                evidence,
-                company,
-            )
+    if isinstance(content, list):
+        content = "".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict)
         )
 
-        if not company_evidence:
+    content = content.strip()
+
+    if content.startswith("```"):
+        content = content.replace("```json", "")
+        content = content.replace("```", "")
+        content = content.strip()
+
+    return json.loads(content)
+
+
+def calculate_evidence_adjusted_score(
+    scores: dict,
+    evidence_count: int,
+) -> tuple[float, float, int]:
+    """Calculate a score using only categories supported by evidence."""
+
+    supported_scores = []
+
+    for category in SCORING_CATEGORIES:
+        value = scores.get(category)
+
+        if isinstance(value, (int, float)) and value > 0:
+            supported_scores.append(float(value))
+
+    supported_category_count = len(supported_scores)
+
+    if supported_category_count == 0:
+        return 0.0, 0.0, 0
+
+    supported_score = (
+        sum(supported_scores) / supported_category_count
+    )
+
+    if evidence_count <= 2:
+        supported_score = min(supported_score, 2.0)
+
+    evidence_adjusted_score = (
+        supported_score
+        * (supported_category_count / len(SCORING_CATEGORIES))
+    )
+
+    return (
+        round(supported_score, 2),
+        round(evidence_adjusted_score, 2),
+        supported_category_count,
+    )
+
+
+def scoring_node(state: ResearchState) -> dict:
+    """Score qualified companies using only company-specific evidence."""
+
+    llm = get_llm()
+
+    company_scores = []
+
+    total_input_tokens = 0
+    total_output_tokens = 0
+    total_tokens = 0
+    total_cost_usd = 0.0
+
+    for company in state.companies_to_research:
+
+        evidence = build_company_evidence(
+            state,
+            company,
+        )
+
+        if not evidence:
             continue
 
-        section = [
-            f"COMPANY: {company}"
-        ]
-
-        for item in company_evidence:
-
-            content = item.get(
-                "content",
-                "",
-            ).strip()
-
-            content = content[:2500]
-
-            section.append(
-                f"TITLE: "
-                f"{item.get('title', '')}\n"
-                f"TYPE: "
-                f"{item.get('evidence_type', 'general')}\n"
-                f"VERIFICATION: "
-                f"{item.get('verification_status', 'unknown')}\n"
-                f"EVIDENCE: {content}\n"
-                f"URL: "
-                f"{item.get('url', '')}"
-            )
-
-        sections.append(
-            "\n".join(section)
+        evidence_text = "\n\n".join(
+            [
+                (
+                    f"Title: {item.get('title', item.get('source_title', ''))}\n"
+                    f"URL: {item.get('url', item.get('source_url', ''))}\n"
+                    f"Evidence type: {item.get('evidence_type', 'unknown')}\n"
+                    f"Content: {item.get('content', '')}"
+                )
+                for item in evidence
+            ]
         )
 
-    return "\n\n".join(sections)
+        prompt = f"""
+You are scoring an Indian AI startup using ONLY the evidence supplied below.
 
-
-def scoring_node(
-    state: ResearchState,
-) -> dict:
-
-    if not state.company_qualifications:
-
-        print(
-            "No companies available "
-            "for scoring."
-        )
-
-        return {
-            "company_scores": []
-        }
-
-    companies = []
-
-    for qualification in (
-        state.company_qualifications
-    ):
-
-        company_name = qualification.get(
-            "company_name",
-            "",
-        )
-
-        should_research = qualification.get(
-            "should_research",
-            False,
-        )
-
-        if (
-            company_name
-            and should_research
-            and company_name not in companies
-        ):
-            companies.append(
-                company_name
-            )
-
-    if not companies:
-
-        print(
-            "No qualified companies "
-            "available for scoring."
-        )
-
-        return {
-            "company_scores": []
-        }
-
-    evidence = build_evidence(
-        state
-    )
-
-    evidence_text = (
-        build_compact_evidence_text(
-            companies,
-            evidence,
-        )
-    )
-
-    if not evidence_text.strip():
-
-        print(
-            "No company-specific "
-            "evidence available "
-            "for scoring."
-        )
-
-        return {
-            "company_scores": []
-        }
-
-    prompt = f"""
-You are an evidence-based scoring agent.
-
-Companies:
-{", ".join(companies)}
+Company:
+{company}
 
 Evidence:
 {evidence_text}
 
-Score every company from 0 to 10
-for these categories:
+Score each category from 0 to 5.
 
-- funding_score
-- product_score
-- customer_traction_score
-- growth_score
-- market_opportunity_score
-- competitive_differentiation_score
+Categories:
+
+1. funding_score
+2. product_score
+3. customer_traction_score
+4. growth_score
+5. market_opportunity_score
+6. competitive_differentiation_score
 
 Rules:
 
-1. Use ONLY supplied evidence.
+- Use ONLY the supplied evidence.
+- Evidence belonging to another company must not be used.
+- Unsupported categories must receive 0.
+- Investor interest is NOT customer traction.
+- Revenue growth is NOT customer traction.
+- Do not assume facts that are not explicitly supported.
+- Return ONLY valid JSON.
+- Do not include markdown.
 
-2. Never use outside knowledge.
+Required JSON format:
 
-3. Evidence for one company cannot
-   support another company.
-
-4. Give 0 when a category is not
-   supported by evidence.
-
-5. Investor interest is NOT customer
-   traction.
-
-6. Revenue growth is NOT customer
-   traction.
-
-7. Revenue growth is NOT automatically
-   competitive differentiation.
-
-8. Do not assume market opportunity.
-
-9. Be conservative when evidence is sparse.
-
-10. Do NOT calculate overall_score.
-
-11. Return one object for every
-    qualified company.
-
-12. Return ONLY valid JSON.
-
-Format:
-
-[
-  {{
-    "company_name": "Company",
+{{
     "funding_score": 0,
     "product_score": 0,
     "customer_traction_score": 0,
     "growth_score": 0,
     "market_opportunity_score": 0,
-    "competitive_differentiation_score": 0,
-    "reasoning": "Short evidence-based explanation."
-  }}
-]
+    "competitive_differentiation_score": 0
+}}
 """
 
-    llm = get_llm()
+        try:
+            response = llm.invoke(prompt)
 
-    response = llm.invoke(
-        prompt
-    )
+            usage = extract_usage(response)
 
-    text = response.content
+            total_input_tokens += usage.input_tokens
+            total_output_tokens += usage.output_tokens
+            total_tokens += usage.total_tokens
+            total_cost_usd += usage.estimated_cost_usd
 
-    if not text:
+            scores = parse_score_response(response)
 
-        print(
-            "Scorer returned empty output."
-        )
-
-        return {
-            "company_scores": []
-        }
-
-    print()
-    print(
-        "===== RAW SCORER OUTPUT ====="
-    )
-    print(text)
-    print(
-        "============================="
-    )
-    print()
-
-    text = text.strip()
-
-    if text.startswith("```"):
-
-        lines = text.splitlines()
-
-        if lines:
-            lines = lines[1:]
-
-        if (
-            lines
-            and lines[-1].strip()
-            == "```"
-        ):
-            lines = lines[:-1]
-
-        text = "\n".join(
-            lines
-        ).strip()
-
-    company_scores = []
-
-    try:
-
-        parsed = json.loads(
-            text
-        )
-
-        if isinstance(
-            parsed,
-            dict,
-        ):
-            parsed = [parsed]
-
-        if not isinstance(
-            parsed,
-            list,
-        ):
-            parsed = []
-
-        for company in parsed:
-
-            if not isinstance(
-                company,
-                dict,
-            ):
-                continue
-
-            company_name = company.get(
-                "company_name",
-                "",
+        except Exception as error:
+            print(
+                f"Scoring failed for {company}: {error}"
             )
+            continue
 
-            if company_name not in companies:
-                continue
+        evidence_count = len(evidence)
 
-            cleaned_company = {
-                "company_name":
-                    company_name
+        (
+            supported_score,
+            evidence_adjusted_score,
+            supported_category_count,
+        ) = calculate_evidence_adjusted_score(
+            scores,
+            evidence_count,
+        )
+
+        company_scores.append(
+            {
+                "company": company,
+                **{
+                    category: scores.get(category, 0)
+                    for category in SCORING_CATEGORIES
+                },
+                "supported_score": supported_score,
+                "evidence_adjusted_score": evidence_adjusted_score,
+                "overall_score": evidence_adjusted_score,
+                "supported_category_count": supported_category_count,
+                "evidence_count": evidence_count,
             }
-
-            for category in (
-                SCORING_CATEGORIES
-            ):
-
-                try:
-
-                    value = float(
-                        company.get(
-                            category,
-                            0,
-                        )
-                    )
-
-                except (
-                    ValueError,
-                    TypeError,
-                ):
-
-                    value = 0.0
-
-                value = max(
-                    0.0,
-                    min(10.0, value),
-                )
-
-                cleaned_company[
-                    category
-                ] = value
-
-            actual_evidence = (
-                get_evidence_for_company(
-                    evidence,
-                    company_name,
-                )
-            )
-
-            evidence_count = len(
-                actual_evidence
-            )
-
-            # Prevent sparse evidence
-            # from producing very high
-            # category scores.
-            if evidence_count == 1:
-
-                for category in (
-                    SCORING_CATEGORIES
-                ):
-                    cleaned_company[
-                        category
-                    ] = min(
-                        cleaned_company[
-                            category
-                        ],
-                        6.0,
-                    )
-
-            elif evidence_count == 2:
-
-                for category in (
-                    SCORING_CATEGORIES
-                ):
-                    cleaned_company[
-                        category
-                    ] = min(
-                        cleaned_company[
-                            category
-                        ],
-                        8.0,
-                    )
-
-            supported_categories = [
-                category
-                for category in (
-                    SCORING_CATEGORIES
-                )
-                if cleaned_company[
-                    category
-                ] > 0
-            ]
-
-            supported_score = (
-                calculate_supported_overall_score(
-                    cleaned_company,
-                    supported_categories,
-                )
-            )
-
-            evidence_adjusted_score = (
-                calculate_evidence_adjusted_score(
-                    supported_score,
-                    len(
-                        supported_categories
-                    ),
-                )
-            )
-
-            cleaned_company[
-                "supported_score"
-            ] = supported_score
-
-            cleaned_company[
-                "overall_score"
-            ] = evidence_adjusted_score
-
-            cleaned_company[
-                "reasoning"
-            ] = company.get(
-                "reasoning",
-                "",
-            )
-
-            cleaned_company[
-                "supported_categories"
-            ] = supported_categories
-
-            cleaned_company[
-                "supported_category_count"
-            ] = len(
-                supported_categories
-            )
-
-            cleaned_company[
-                "evidence_count"
-            ] = evidence_count
-
-            company_scores.append(
-                cleaned_company
-            )
-
-    except json.JSONDecodeError as error:
-
-        print(
-            "Scorer returned invalid JSON."
         )
-
-        print(
-            f"JSON parsing error: {error}"
-        )
-
-    print(
-        f"Companies scored: "
-        f"{len(company_scores)}"
-    )
 
     print()
-
+    print("===== SCORING =====")
     print(
-        "===== FINAL EVIDENCE-ADJUSTED SCORES ====="
+        f"Scored companies: {len(company_scores)}"
     )
-
-    for score in company_scores:
-
-        print(
-            f"{score.get('company_name')} "
-            f"=> "
-            f"{score.get('overall_score')} "
-            f"(supported: "
-            f"{score.get('supported_score')}, "
-            f"categories: "
-            f"{score.get('supported_category_count')}/"
-            f"{len(SCORING_CATEGORIES)})"
-        )
-
     print(
-        "==========================================="
+        "Scorer LLM usage: "
+        f"input={total_input_tokens}, "
+        f"output={total_output_tokens}, "
+        f"total={total_tokens}, "
+        f"cost=${total_cost_usd:.4f}"
     )
-
+    print("===== END SCORING =====")
     print()
 
     return {
-        "company_scores":
-            company_scores
+        "company_scores": company_scores,
+        "total_input_tokens": total_input_tokens,
+        "total_output_tokens": total_output_tokens,
+        "total_tokens": total_tokens,
+        "total_cost_usd": total_cost_usd,
     }
