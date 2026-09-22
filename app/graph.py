@@ -1,87 +1,38 @@
 import time
 
-from langgraph.graph import (
-    StateGraph,
-    START,
-    END,
-)
+from langgraph.graph import StateGraph, START, END
 
 from app.models.state import ResearchState
 
 from app.agents.planner import planner_node
+from app.agents.researcher import web_research_node
+from app.agents.market_researcher import market_research_node
+from app.agents.company_discovery import company_discovery_node
+from app.agents.company_researcher import company_research_node
+from app.agents.verifier import source_verifier_node
+from app.agents.rag_indexer import rag_indexer_node
+from app.agents.retriever import retriever_node
+from app.agents.company_qualifier import company_qualification_node
+from app.agents.scorer import scoring_node
+from app.agents.confidence import confidence_node
+from app.agents.synthesizer import synthesizer_node
+from app.agents.hallucination_validator import validate_report
 
-from app.agents.researcher import (
-    web_research_node,
-)
-
-from app.agents.market_researcher import (
-    market_research_node,
-)
-
-from app.agents.company_discovery import (
-    company_discovery_node,
-)
-
-from app.agents.company_researcher import (
-    company_research_node,
-)
-
-from app.agents.verifier import (
-    source_verifier_node,
-)
-
-from app.agents.rag_indexer import (
-    rag_indexer_node,
-)
-
-from app.agents.retriever import (
-    retriever_node,
-)
-
-from app.agents.company_qualifier import (
-    company_qualification_node,
-)
-
-from app.agents.scorer import (
-    scoring_node,
-)
-
-from app.agents.confidence import (
-    confidence_node,
-)
-
-from app.agents.synthesizer import (
-    synthesizer_node,
-)
-
-from app.agents.hallucination_validator import (
-    validate_report,
-)
+from app.services.observability import measure_latency
 
 
-def timed_node(
-    node_name,
-    node_function,
-):
-    """
-    Measures how long each LangGraph node takes.
-    """
+def timed_node(node_name, node_function):
+    """Measure and display execution time for each graph node."""
 
     def wrapper(state):
-
         start_time = time.perf_counter()
 
         result = node_function(state)
 
-        end_time = time.perf_counter()
-
-        elapsed = (
-            end_time - start_time
-        )
+        elapsed = measure_latency(start_time)
 
         print(
-            f"[TIMING] "
-            f"{node_name}: "
+            f"[TIMING] {node_name}: "
             f"{elapsed:.2f} seconds"
         )
 
@@ -91,15 +42,7 @@ def timed_node(
 
 
 def build_research_graph():
-
-    graph = StateGraph(
-        ResearchState
-    )
-
-
-    # --------------------------------------------------
-    # Register agents/nodes.
-    # --------------------------------------------------
+    graph = StateGraph(ResearchState)
 
     graph.add_node(
         "planner",
@@ -197,8 +140,6 @@ def build_research_graph():
         ),
     )
 
-    # NEW:
-    # Hallucination validation node.
     graph.add_node(
         "hallucination_validator",
         timed_node(
@@ -206,11 +147,6 @@ def build_research_graph():
             validate_report,
         ),
     )
-
-
-    # --------------------------------------------------
-    # Graph flow.
-    # --------------------------------------------------
 
     graph.add_edge(
         START,
@@ -275,19 +211,14 @@ def build_research_graph():
         "synthesizer",
     )
 
-    # NEW:
-    # Synthesizer no longer goes directly to END.
     graph.add_edge(
         "synthesizer",
         "hallucination_validator",
     )
 
-    # NEW:
-    # Validation happens before END.
     graph.add_edge(
         "hallucination_validator",
         END,
     )
-
 
     return graph.compile()
