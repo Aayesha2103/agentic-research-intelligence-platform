@@ -2,6 +2,7 @@ import json
 
 from app.models.state import ResearchState
 from app.services.llm import get_llm
+from app.services.llm_usage import extract_usage
 
 
 def build_synthesis_evidence(
@@ -245,6 +246,16 @@ Required format:
         prompt
     )
 
+    usage = extract_usage(response)
+
+    print(
+        "Synthesizer LLM usage: "
+        f"input={usage.input_tokens}, "
+        f"output={usage.output_tokens}, "
+        f"total={usage.total_tokens}, "
+        f"cost=${usage.estimated_cost_usd:.4f}"
+    )
+
     text = response.content
 
     if not text:
@@ -254,7 +265,11 @@ Required format:
         )
 
         return {
-            "final_report": ""
+            "final_report": "",
+            "total_input_tokens": usage.input_tokens,
+            "total_output_tokens": usage.output_tokens,
+            "total_tokens": usage.total_tokens,
+            "total_cost_usd": usage.estimated_cost_usd,
         }
 
     text = text.strip()
@@ -294,7 +309,11 @@ Required format:
         )
 
         return {
-            "final_report": text
+            "final_report": text,
+            "total_input_tokens": usage.input_tokens,
+            "total_output_tokens": usage.output_tokens,
+            "total_tokens": usage.total_tokens,
+            "total_cost_usd": usage.estimated_cost_usd,
         }
 
     # ------------------------------------------------------------
@@ -346,5 +365,9 @@ Required format:
         "final_report": json.dumps(
             report,
             indent=2,
-        )
+        ),
+        "total_input_tokens": usage.input_tokens,
+        "total_output_tokens": usage.output_tokens,
+        "total_tokens": usage.total_tokens,
+        "total_cost_usd": usage.estimated_cost_usd,
     }
