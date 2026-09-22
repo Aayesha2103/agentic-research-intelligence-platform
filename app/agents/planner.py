@@ -1,5 +1,6 @@
 from app.models.state import ResearchState
 from app.services.llm import get_planner_llm
+from app.services.llm_usage import extract_usage
 
 
 DEFAULT_COMPANIES = [
@@ -34,27 +35,16 @@ EXCLUDED_COMPANIES = {
 
 
 def clean_company_name(company: str) -> str:
-    """
-    Removes numbering and unnecessary formatting
-    from a company name.
-    """
-
     company = company.strip()
-
     company = company.lstrip(
         "0123456789.-) "
     )
-
     return company
 
 
 def validate_companies(
     companies: list[str],
 ) -> list[str]:
-    """
-    Keeps only companies from the approved
-    Indian AI startup candidate list.
-    """
 
     validated = []
 
@@ -65,7 +55,9 @@ def validate_companies(
 
     for company in companies:
 
-        company = clean_company_name(company)
+        company = clean_company_name(
+            company
+        )
 
         if not company:
             continue
@@ -78,19 +70,19 @@ def validate_companies(
         if company_key not in allowed:
             continue
 
-        canonical_name = allowed[company_key]
+        canonical_name = allowed[
+            company_key
+        ]
 
         if canonical_name not in validated:
-            validated.append(canonical_name)
+            validated.append(
+                canonical_name
+            )
 
     return validated
 
 
 def clean_query(query: str) -> str:
-    """
-    Removes accidental year assumptions and
-    incomplete query endings.
-    """
 
     query = query.strip()
 
@@ -122,9 +114,13 @@ def clean_query(query: str) -> str:
         ):
             continue
 
-        cleaned_words.append(word)
+        cleaned_words.append(
+            word
+        )
 
-    query = " ".join(cleaned_words)
+    query = " ".join(
+        cleaned_words
+    )
 
     incomplete_endings = [
         "in",
@@ -151,10 +147,11 @@ def clean_query(query: str) -> str:
             ):
 
                 query = query[
-                    : -len(ending)
+                    :-len(ending)
                 ].strip()
 
                 changed = True
+
                 break
 
     return query
@@ -163,15 +160,14 @@ def clean_query(query: str) -> str:
 def validate_queries(
     queries: list[str],
 ) -> list[str]:
-    """
-    Cleans and deduplicates search queries.
-    """
 
     validated = []
 
     for query in queries:
 
-        query = clean_query(query)
+        query = clean_query(
+            query
+        )
 
         if len(query) < 10:
             continue
@@ -182,7 +178,9 @@ def validate_queries(
         }:
             continue
 
-        validated.append(query)
+        validated.append(
+            query
+        )
 
     return validated[:10]
 
@@ -190,14 +188,15 @@ def validate_queries(
 def planner_node(
     state: ResearchState,
 ) -> dict:
-    """
-    Creates a research plan from the user's question.
-    """
 
     print()
-    print("===== RESEARCH PLAN =====")
+    print(
+        "===== RESEARCH PLAN ====="
+    )
 
     llm = get_planner_llm()
+
+    usage = None
 
     prompt = f"""
 You are the planning agent for an Indian AI
@@ -215,7 +214,6 @@ IMPORTANT:
 
 - Do not invent years.
 - Do not invent dates.
-- Do not invent time periods.
 - Do not create company names.
 - Do not provide a company list.
 - Focus on funding, products, customers,
@@ -229,7 +227,25 @@ IMPORTANT:
 
     try:
 
-        plan = llm.invoke(prompt)
+        response = llm.invoke(
+            prompt
+        )
+
+        plan = response["parsed"]
+
+        raw_response = response["raw"]
+
+        usage = extract_usage(
+            raw_response
+        )
+
+        print(
+            "Planner LLM usage: "
+            f"input={usage.input_tokens}, "
+            f"output={usage.output_tokens}, "
+            f"total={usage.total_tokens}, "
+            f"cost=${usage.estimated_cost_usd:.4f}"
+        )
 
         research_topics = [
             topic.strip()
@@ -237,16 +253,24 @@ IMPORTANT:
             if topic.strip()
         ]
 
-        search_queries = validate_queries(
-            plan.search_queries
+        search_queries = (
+            validate_queries(
+                plan.search_queries
+            )
         )
 
-        companies = DEFAULT_COMPANIES.copy()
+        companies = (
+            DEFAULT_COMPANIES.copy()
+        )
 
         if not research_topics:
-            research_topics = DEFAULT_TOPICS.copy()
+
+            research_topics = (
+                DEFAULT_TOPICS.copy()
+            )
 
         if not search_queries:
+
             search_queries = [
                 "Indian AI startups funding",
                 "Indian AI startups products and technology",
@@ -259,10 +283,13 @@ IMPORTANT:
     except Exception as error:
 
         print(
-            f"Planner failed, using fallback plan: {error}"
+            "Planner failed, using "
+            f"fallback plan: {error}"
         )
 
-        research_topics = DEFAULT_TOPICS.copy()
+        research_topics = (
+            DEFAULT_TOPICS.copy()
+        )
 
         search_queries = [
             "Indian AI startups funding",
@@ -273,32 +300,68 @@ IMPORTANT:
             "Indian AI startup competitive differentiation",
         ]
 
-        companies = DEFAULT_COMPANIES.copy()
+        companies = (
+            DEFAULT_COMPANIES.copy()
+        )
 
     print()
-    print("Research topics:")
+    print(
+        "Research topics:"
+    )
 
     for topic in research_topics:
-        print(f"- {topic}")
+        print(
+            f"- {topic}"
+        )
 
     print()
-    print("Companies to research:")
+    print(
+        "Companies to research:"
+    )
 
     for company in companies:
-        print(f"- {company}")
+        print(
+            f"- {company}"
+        )
 
     print()
-    print("Search queries:")
+    print(
+        "Search queries:"
+    )
 
     for query in search_queries:
-        print(f"- {query}")
+        print(
+            f"- {query}"
+        )
 
     print()
-    print("===== END RESEARCH PLAN =====")
+    print(
+        "===== END RESEARCH PLAN ====="
+    )
     print()
 
     return {
         "research_topics": research_topics,
         "companies_to_research": companies,
         "search_queries": search_queries,
+        "total_input_tokens": (
+            usage.input_tokens
+            if usage
+            else 0
+        ),
+        "total_output_tokens": (
+            usage.output_tokens
+            if usage
+            else 0
+        ),
+        "total_tokens": (
+            usage.total_tokens
+            if usage
+            else 0
+        ),
+        "total_cost_usd": (
+            usage.estimated_cost_usd
+            if usage
+            else 0.0
+        ),
     }
