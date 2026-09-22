@@ -4,11 +4,13 @@ import time
 from dotenv import load_dotenv
 from langfuse import get_client
 
+
 load_dotenv()
 
 
 def is_langfuse_available() -> bool:
     """Return True when Langfuse credentials are configured."""
+
     return bool(
         os.getenv("LANGFUSE_PUBLIC_KEY")
         and os.getenv("LANGFUSE_SECRET_KEY")
@@ -16,19 +18,32 @@ def is_langfuse_available() -> bool:
 
 
 def start_trace(name: str):
-    """Create a Langfuse trace when observability is configured."""
+    """Start a Langfuse observation when credentials are configured."""
+
     if not is_langfuse_available():
         return None
 
-    client = get_client()
+    try:
+        client = get_client()
 
-    return client.trace(
-        name=name,
-    )
+        return client.start_as_current_observation(
+            name=name,
+            as_type="span",
+        )
+
+    except Exception as error:
+        print(
+            f"Langfuse trace start skipped: {error}"
+        )
+        return None
 
 
-def end_trace(trace, elapsed: float) -> None:
-    """Record node latency and finish the Langfuse trace."""
+def end_trace(
+    trace,
+    elapsed: float,
+) -> None:
+    """Record latency and close the Langfuse observation."""
+
     if trace is None:
         return
 
@@ -38,28 +53,36 @@ def end_trace(trace, elapsed: float) -> None:
                 "latency_seconds": elapsed,
             }
         )
+
+        trace.end()
+
     except Exception as error:
         print(
-            f"Langfuse trace update skipped: {error}"
+            f"Langfuse trace end skipped: {error}"
         )
 
 
 def flush_langfuse() -> None:
     """Send pending Langfuse events."""
+
     if not is_langfuse_available():
         return
 
     try:
         client = get_client()
         client.flush()
+
     except Exception as error:
         print(
             f"Langfuse flush skipped: {error}"
         )
 
 
-def measure_latency(start_time: float) -> float:
+def measure_latency(
+    start_time: float,
+) -> float:
     """Calculate elapsed time in seconds."""
+
     return round(
         time.perf_counter() - start_time,
         2,
