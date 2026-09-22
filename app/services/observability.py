@@ -27,13 +27,35 @@ def start_trace(name: str):
     )
 
 
+def end_trace(trace, elapsed: float) -> None:
+    """Record node latency and finish the Langfuse trace."""
+    if trace is None:
+        return
+
+    try:
+        trace.update(
+            metadata={
+                "latency_seconds": elapsed,
+            }
+        )
+    except Exception as error:
+        print(
+            f"Langfuse trace update skipped: {error}"
+        )
+
+
 def flush_langfuse() -> None:
     """Send pending Langfuse events."""
     if not is_langfuse_available():
         return
 
-    client = get_client()
-    client.flush()
+    try:
+        client = get_client()
+        client.flush()
+    except Exception as error:
+        print(
+            f"Langfuse flush skipped: {error}"
+        )
 
 
 def measure_latency(start_time: float) -> float:

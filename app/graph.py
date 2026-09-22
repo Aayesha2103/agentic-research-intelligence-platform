@@ -18,31 +18,49 @@ from app.agents.confidence import confidence_node
 from app.agents.synthesizer import synthesizer_node
 from app.agents.hallucination_validator import validate_report
 
-from app.services.observability import measure_latency
+from app.services.observability import (
+    start_trace,
+    end_trace,
+    measure_latency,
+)
 
 
 def timed_node(node_name, node_function):
-    """Measure and display execution time for each graph node."""
+    """Measure latency and optionally trace each graph node."""
 
     def wrapper(state):
+        trace = start_trace(node_name)
+
         start_time = time.perf_counter()
 
-        result = node_function(state)
+        try:
+            result = node_function(state)
+            return result
 
-        elapsed = measure_latency(start_time)
+        finally:
+            elapsed = measure_latency(start_time)
 
-        print(
-            f"[TIMING] {node_name}: "
-            f"{elapsed:.2f} seconds"
-        )
+            end_trace(
+                trace,
+                elapsed,
+            )
 
-        return result
+            print(
+                f"[TIMING] {node_name}: "
+                f"{elapsed:.2f} seconds"
+            )
 
     return wrapper
 
 
 def build_research_graph():
+    """Build and compile the research workflow."""
+
     graph = StateGraph(ResearchState)
+
+    # -------------------------
+    # Research agents
+    # -------------------------
 
     graph.add_node(
         "planner",
@@ -84,6 +102,10 @@ def build_research_graph():
         ),
     )
 
+    # -------------------------
+    # Verification
+    # -------------------------
+
     graph.add_node(
         "source_verifier",
         timed_node(
@@ -91,6 +113,10 @@ def build_research_graph():
             source_verifier_node,
         ),
     )
+
+    # -------------------------
+    # RAG
+    # -------------------------
 
     graph.add_node(
         "rag_indexer",
@@ -107,6 +133,10 @@ def build_research_graph():
             retriever_node,
         ),
     )
+
+    # -------------------------
+    # Analysis
+    # -------------------------
 
     graph.add_node(
         "company_qualifier",
@@ -132,6 +162,10 @@ def build_research_graph():
         ),
     )
 
+    # -------------------------
+    # Report generation
+    # -------------------------
+
     graph.add_node(
         "synthesizer",
         timed_node(
@@ -148,11 +182,17 @@ def build_research_graph():
         ),
     )
 
+    # -------------------------
+    # Workflow edges
+    # -------------------------
+
     graph.add_edge(
         START,
         "planner",
     )
 
+    # Planner branches into
+    # parallel research paths.
     graph.add_edge(
         "planner",
         "web_researcher",
@@ -163,6 +203,8 @@ def build_research_graph():
         "market_researcher",
     )
 
+    # Web research discovers
+    # companies for deeper research.
     graph.add_edge(
         "web_researcher",
         "company_discovery",
@@ -173,6 +215,8 @@ def build_research_graph():
         "company_researcher",
     )
 
+    # Wait for both market and
+    # company research before verification.
     graph.add_edge(
         [
             "market_researcher",
@@ -180,6 +224,10 @@ def build_research_graph():
         ],
         "source_verifier",
     )
+
+    # -------------------------
+    # RAG pipeline
+    # -------------------------
 
     graph.add_edge(
         "source_verifier",
@@ -190,6 +238,10 @@ def build_research_graph():
         "rag_indexer",
         "retriever",
     )
+
+    # -------------------------
+    # Analysis pipeline
+    # -------------------------
 
     graph.add_edge(
         "retriever",
@@ -205,6 +257,10 @@ def build_research_graph():
         "scorer",
         "confidence",
     )
+
+    # -------------------------
+    # Final report pipeline
+    # -------------------------
 
     graph.add_edge(
         "confidence",

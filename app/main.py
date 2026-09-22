@@ -7,44 +7,30 @@ from app.services.memory import (
     get_previous_research,
     is_memory_available,
 )
+from app.services.observability import flush_langfuse
 
 
-def run_research(
-    question: str,
-) -> ResearchState:
-
+def run_research(question: str) -> ResearchState:
     if is_memory_available():
-        print(
-            "Redis memory: available"
-        )
+        print("Redis memory: available")
     else:
         print(
             "Redis memory: unavailable "
             "— continuing without cache"
         )
 
-    previous_result = get_previous_research(
-        question
-    )
+    previous_result = get_previous_research(question)
 
     if previous_result:
         print()
-        print(
-            "===== PREVIOUS RESEARCH FOUND ====="
-        )
-        print(
-            "Using cached research from Redis."
-        )
-        print(
-            "==================================="
-        )
+        print("===== PREVIOUS RESEARCH FOUND =====")
+        print("Using cached research from Redis.")
+        print("===================================")
         print()
 
         return ResearchState(
             question=question,
-            final_report=previous_result[
-                "report"
-            ],
+            final_report=previous_result["report"],
         )
 
     graph = build_research_graph()
@@ -61,13 +47,9 @@ def run_research(
 
     end_time = time.perf_counter()
 
-    latency = (
-        end_time - start_time
-    )
+    latency = end_time - start_time
 
-    result[
-        "total_latency_seconds"
-    ] = round(
+    result["total_latency_seconds"] = round(
         latency,
         2,
     )
@@ -86,27 +68,36 @@ def run_research(
             "Research result saved to Redis."
         )
 
+    # Send pending Langfuse traces.
+    flush_langfuse()
+
     print()
     print(
         "===== RESEARCH COMPLETED ====="
     )
     print()
+
     print(
-        f"Total latency: "
-        f"{final_state.total_latency_seconds} seconds"
+        "Total latency: "
+        f"{final_state.total_latency_seconds} "
+        "seconds"
     )
+
     print(
-        f"Confidence score: "
+        "Confidence score: "
         f"{final_state.confidence_score}"
     )
+
     print()
     print(
         "===== FINAL REPORT ====="
     )
     print()
+
     print(
         final_state.final_report
     )
+
     print()
     print(
         "===== END FINAL REPORT ====="
