@@ -1,24 +1,28 @@
 from app.tools.web_search import search_web
 
 
-print("===== TAVILY TEST =====")
+def test_tavily_search():
 
-query = "Indian AI startup funding"
+    print("===== TAVILY TEST =====")
 
-response = search_web(query)
+    query = "Indian AI startup funding"
 
-print("Response type:", type(response))
+    response = search_web(query)
 
-print(
-    "Number of results:",
-    len(response.get("results", []))
-)
+    print("Response type:", type(response))
 
-print("\n===== FIRST RESULT =====")
+    print(
+        "Number of results:",
+        len(response)
+    )
 
-if response.get("results"):
+    assert isinstance(response, list)
 
-    first_result = response["results"][0]
+    print("\n===== FIRST RESULT =====")
+
+    assert len(response) > 0
+
+    first_result = response[0]
 
     print(
         "Title:",
@@ -40,6 +44,5 @@ if response.get("results"):
         first_result.get("score", 0.0)
     )
 
-else:
-
-    print("No results returned.")
+    assert "title" in first_result
+    assert "url" in first_result

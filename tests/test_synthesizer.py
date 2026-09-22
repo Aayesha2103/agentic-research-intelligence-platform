@@ -2,71 +2,101 @@ from app.models.state import ResearchState
 from app.agents.synthesizer import synthesizer_node
 
 
-def main():
+def test_synthesizer_node():
 
     print("===== SYNTHESIZER AGENT TEST =====")
     print()
 
     state = ResearchState(
-        question=(
-            "Analyze the Indian AI startup market "
-            "and tell me which companies are most promising."
-        )
+        question="Evaluate an Indian AI startup",
+        companies_to_research=["TestAI"],
     )
+
+    state.verified_sources = [
+        {
+            "company": "TestAI",
+            "source_type": "company",
+            "title": "TestAI AI Platform",
+            "url": "https://techcrunch.com/testai",
+            "evidence_type": "product",
+            "source_quality": 0.90,
+            "content": (
+                "TestAI is an Indian AI startup providing "
+                "an artificial intelligence platform."
+            ),
+        },
+        {
+            "company": "TestAI",
+            "source_type": "company",
+            "title": "TestAI Funding",
+            "url": "https://inc42.com/testai",
+            "evidence_type": "funding",
+            "source_quality": 0.85,
+            "content": (
+                "TestAI has raised funding from technology "
+                "investors."
+            ),
+        },
+        {
+            "source_type": "market",
+            "title": "Indian AI Startup Ecosystem",
+            "url": "https://yourstory.com/indian-ai",
+            "evidence_type": "market",
+            "source_quality": 0.80,
+            "content": (
+                "India has a growing ecosystem of AI startups "
+                "across multiple technology sectors."
+            ),
+        },
+    ]
 
     state.company_scores = [
         {
             "company_name": "TestAI",
-            "funding_score": 8.0,
-            "product_score": 8.0,
-            "customer_score": 7.0,
-            "growth_score": 7.0,
-            "market_score": 8.0,
-            "competitive_score": 7.0,
-            "overall_score": 7.5,
+            "funding_score": 7,
+            "product_score": 8,
+            "customer_traction_score": 6,
+            "growth_score": 7,
+            "market_opportunity_score": 8,
+            "competitive_differentiation_score": 6,
+            "overall_score": 7.0,
             "reasoning": (
                 "The company has evidence of funding, "
-                "a differentiated AI product, customer adoption, "
-                "and a relevant market opportunity."
+                "AI product development, and market opportunity."
             ),
         }
     ]
 
-    state.verified_sources = [
+    state.retrieved_documents = [
         {
-            "source_type": "market",
-            "title": "Indian AI Market Overview",
-            "url": "https://example.com/market",
-            "evidence_type": "market",
             "content": (
-                "India has a growing artificial intelligence "
-                "startup ecosystem with increasing investment "
-                "and adoption."
+                "TestAI provides an artificial intelligence "
+                "platform for enterprise customers."
             ),
-        },
-        {
-            "source_type": "company",
-            "company": "TestAI",
-            "title": "TestAI Raises Funding",
-            "url": "https://example.com/testai",
-            "evidence_type": "funding",
-            "content": (
-                "TestAI raised funding from investors to expand "
-                "its artificial intelligence product."
-            ),
-        },
+            "source_url": "https://techcrunch.com/testai",
+            "source_title": "TestAI AI Platform",
+            "company_name": "TestAI",
+            "evidence_type": "product",
+            "similarity": 0.85,
+        }
     ]
 
-    print("[1] Running synthesizer...")
+    print("[1] Running synthesizer agent...")
     print()
 
     result = synthesizer_node(state)
 
-    print("===== SYNTHESIZER OUTPUT =====")
-    print()
+    assert "final_report" in result
+    assert result["final_report"]
 
+    assert "confidence_score" in result
+    assert 0 <= result["confidence_score"] <= 1
+
+    print("Confidence score:", result["confidence_score"])
+
+    print()
+    print("Final report:")
     print(result["final_report"])
 
-
-if __name__ == "__main__":
-    main()
+    print()
+    print("Synthesizer agent test completed successfully.")

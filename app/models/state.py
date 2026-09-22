@@ -1,27 +1,22 @@
-from typing import Annotated, List, Dict
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
 
-def merge_lists(
-    existing: List[Dict],
-    new: List[Dict]
-) -> List[Dict]:
+def merge_lists(existing: list, new: list) -> list:
     """
-    Merges list-based results from parallel LangGraph nodes.
+    Merges two lists together.
     """
-
     return existing + new
 
 
 def merge_unique_strings(
-    existing: List[str],
-    new: List[str]
-) -> List[str]:
+    existing: list[str],
+    new: list[str]
+) -> list[str]:
     """
     Merges string lists while removing duplicates.
     """
-
     result = existing.copy()
 
     for item in new:
@@ -32,69 +27,71 @@ def merge_unique_strings(
 
 
 class ResearchState(BaseModel):
-    """
-    Shared state that travels through the LangGraph workflow.
-    Every node reads from it and writes back to it.
-    """
 
     question: str
 
-    research_topics: List[str] = Field(
+    research_topics: list[str] = Field(
         default_factory=list
     )
 
     companies_to_research: Annotated[
-        List[str],
+        list[str],
         merge_unique_strings
     ] = Field(
         default_factory=list
     )
 
-    search_queries: List[str] = Field(
+    search_queries: list[str] = Field(
         default_factory=list
     )
 
     market_sources: Annotated[
-        List[Dict],
+        list[dict],
         merge_lists
     ] = Field(
         default_factory=list
     )
 
     company_sources: Annotated[
-        List[Dict],
+        list[dict],
         merge_lists
     ] = Field(
         default_factory=list
     )
 
     funding_sources: Annotated[
-        List[Dict],
+        list[dict],
         merge_lists
     ] = Field(
         default_factory=list
     )
 
     sources: Annotated[
-        List[Dict],
+        list[dict],
         merge_lists
     ] = Field(
         default_factory=list
     )
 
-    verified_sources: List[Dict] = Field(
+    verified_sources: Annotated[
+        list[dict],
+        merge_lists
+    ] = Field(
         default_factory=list
     )
 
-    company_qualifications: List[Dict] = Field(
+    retrieved_documents: list[dict] = Field(
         default_factory=list
     )
 
-    company_scores: List[Dict] = Field(
+    company_qualifications: list[dict] = Field(
         default_factory=list
     )
 
-    company_scores: List[Dict] = Field(
+    company_scores: Annotated[
+        list[dict],
+        merge_lists
+    ] = Field(
         default_factory=list
     )
 

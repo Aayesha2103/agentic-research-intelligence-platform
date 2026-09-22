@@ -1,139 +1,350 @@
+import json
+
 from app.models.state import ResearchState
-from app.models.report import ResearchReport
 from app.services.llm import get_llm
 
 
+def build_synthesis_evidence(
+    state: ResearchState,
+) -> str:
+    """Build a compact evidence context for report generation."""
+
+    sections = []
+
+    # ------------------------------------------------------------
+    # RAG evidence
+    # ------------------------------------------------------------
+
+    for document in state.retrieved_documents:
+
+        company = document.get(
+            "company_name",
+            "",
+        )
+
+        if not company:
+            continue
+
+        content = document.get(
+            "content",
+            "",
+        ).strip()
+
+        content = content[:1800]
+
+        sections.append(
+            f"COMPANY: {company}\n"
+            f"TITLE: {document.get('source_title', '')}\n"
+            f"EVIDENCE TYPE: "
+            f"{document.get('evidence_type', 'general')}\n"
+            f"VERIFICATION STATUS: RAG_INDEXED\n"
+            f"EVIDENCE: {content}\n"
+            f"URL: {document.get('source_url', '')}"
+        )
+
+    # ------------------------------------------------------------
+    # Direct research evidence
+    # ------------------------------------------------------------
+
+    for source in state.verified_sources:
+
+        company = source.get(
+            "company",
+            source.get("company_name", ""),
+        )
+
+        if not company:
+            continue
+
+        content = source.get(
+            "content",
+            "",
+        ).strip()
+
+        content = content[:1800]
+
+        verification_status = source.get(
+            "verification_status",
+            "unknown",
+        )
+
+        sections.append(
+            f"COMPANY: {company}\n"
+            f"TITLE: {source.get('title', '')}\n"
+            f"EVIDENCE TYPE: "
+            f"{source.get('evidence_type', 'general')}\n"
+            f"VERIFICATION STATUS: "
+            f"{verification_status}\n"
+            f"EVIDENCE: {content}\n"
+            f"URL: {source.get('url', '')}"
+        )
+
+    return "\n\n".join(sections)
+
+
 def synthesizer_node(
-    state: ResearchState
+    state: ResearchState,
 ) -> dict:
-    """
-    Report Synthesizer Agent.
+    """Generate the final research report."""
 
-    Combines verified research evidence and company scores
-    into a structured final research report.
-    """
+    if not state.company_scores:
 
-    llm = get_llm()
+        print(
+            "No company scores available "
+            "for synthesis."
+        )
 
-    report_llm = llm.with_structured_output(
-        ResearchReport
+        return {
+            "final_report": ""
+        }
+
+    print()
+    print(
+        "===== SYNTHESIZER INPUT SCORES ====="
     )
-
-    company_scores_text = ""
 
     for score in state.company_scores:
 
-        company_scores_text += (
-            f"Company: {score.get('company_name', '')}\n"
-            f"Funding score: "
-            f"{score.get('funding_score', 0)}\n"
-            f"Product score: "
-            f"{score.get('product_score', 0)}\n"
-            f"Customer score: "
-            f"{score.get('customer_score', 0)}\n"
-            f"Growth score: "
-            f"{score.get('growth_score', 0)}\n"
-            f"Market score: "
-            f"{score.get('market_score', 0)}\n"
-            f"Competitive score: "
-            f"{score.get('competitive_score', 0)}\n"
-            f"Overall score: "
-            f"{score.get('overall_score', 0)}\n"
-            f"Reasoning: "
-            f"{score.get('reasoning', '')}\n\n"
+        print(
+            f"{score.get('company_name')}: "
+            f"{score.get('overall_score')}"
         )
 
-    market_evidence_text = ""
+    print(
+        "====================================="
+    )
 
-    for source in state.verified_sources:
+    evidence_text = build_synthesis_evidence(
+        state
+    )
 
-        if source.get("source_type") == "market":
+    companies_text = json.dumps(
+        state.company_scores,
+        indent=2,
+    )
 
-            market_evidence_text += (
-                f"Title: {source.get('title', '')}\n"
-                f"URL: {source.get('url', '')}\n"
-                f"Evidence type: "
-                f"{source.get('evidence_type', '')}\n"
-                f"Content: "
-                f"{source.get('content', '')}\n\n"
+    prompt = f"""
+Create a concise evidence-based research
+report about the Indian AI startup market.
+
+COMPANY SCORES:
+{companies_text}
+
+EVIDENCE:
+{evidence_text}
+
+CONFIDENCE SCORE:
+{state.confidence_score}
+
+IMPORTANT EVIDENCE RULES:
+
+- Use ONLY the supplied scores and evidence.
+- Do not add outside facts.
+- Do not change any overall_score.
+- Preserve the exact company names and scores.
+- Do not invent funding, customers, revenue,
+  products, partnerships, market size, or
+  other facts.
+- If a fact is not supported by evidence,
+  explicitly say that the evidence is
+  unavailable.
+- RAG_INDEXED evidence is derived from the
+  research database and is NOT independent
+  verification.
+- verification_status="verified" means the
+  source passed the source verification step.
+- verification_status="demo" means the source
+  is synthetic fallback data and must NOT be
+  described as real-world verified evidence.
+- verification_status="unverified" means the
+  source was not independently verified.
+- Do not describe demo evidence as real
+  research.
+- Do not describe RAG documents as independent
+  sources.
+- Clearly reflect the confidence score.
+- If confidence is 0.0, state that no genuinely
+  verified web evidence was available.
+- Do not claim that the market analysis is
+  comprehensive when evidence is limited.
+
+SCORE INTERPRETATION:
+
+The overall_score is an evidence-adjusted
+score generated by the scoring agent.
+
+It is NOT a simple average across all six
+categories.
+
+Categories without supporting evidence
+receive zero, and the score is adjusted
+according to the number of categories
+supported by evidence.
+
+Do not recalculate the scores.
+
+REPORT REQUIREMENTS:
+
+The methodology must explain that:
+
+1. Companies were evaluated using supplied
+   evidence.
+
+2. Six scoring categories were considered:
+   funding, product, customer traction,
+   growth, market opportunity, and
+   competitive differentiation.
+
+3. Unsupported categories receive zero.
+
+4. The final overall score is evidence-adjusted
+   based on supported categories.
+
+5. Source verification and confidence are
+   tracked separately.
+
+The limitations section should mention
+limitations that are actually supported by
+the supplied evidence.
+
+Do not automatically claim that there is
+"no differentiation between verified and
+unverified evidence" because the pipeline
+tracks verification status.
+
+Return ONLY valid JSON.
+
+Required format:
+
+{{
+  "title": "Indian AI Startup Market Analysis",
+  "executive_summary": "...",
+  "market_overview": "...",
+  "companies": [
+    {{
+      "company_name": "...",
+      "overall_score": 0,
+      "key_strengths": [],
+      "key_risks": [],
+      "evidence_summary": "..."
+    }}
+  ],
+  "methodology": "...",
+  "limitations": [],
+  "validation": {{
+    "status": "pending",
+    "issues": [],
+    "hallucination_check": false
+  }}
+}}
+"""
+
+    llm = get_llm()
+
+    response = llm.invoke(
+        prompt
+    )
+
+    text = response.content
+
+    if not text:
+
+        print(
+            "Synthesizer returned empty output."
+        )
+
+        return {
+            "final_report": ""
+        }
+
+    text = text.strip()
+
+    if text.startswith("```"):
+
+        lines = text.splitlines()
+
+        if lines:
+            lines = lines[1:]
+
+        if (
+            lines
+            and lines[-1].strip()
+            == "```"
+        ):
+            lines = lines[:-1]
+
+        text = "\n".join(
+            lines
+        ).strip()
+
+    try:
+
+        report = json.loads(
+            text
+        )
+
+    except json.JSONDecodeError as error:
+
+        print(
+            "Synthesizer returned invalid JSON."
+        )
+
+        print(
+            f"JSON parsing error: {error}"
+        )
+
+        return {
+            "final_report": text
+        }
+
+    # ------------------------------------------------------------
+    # Preserve Python-generated scores exactly.
+    # ------------------------------------------------------------
+
+    score_lookup = {
+        item["company_name"]:
+            item["overall_score"]
+        for item in state.company_scores
+    }
+
+    for company in report.get(
+        "companies",
+        [],
+    ):
+
+        company_name = company.get(
+            "company_name",
+            "",
+        )
+
+        if company_name in score_lookup:
+
+            company["overall_score"] = (
+                score_lookup[company_name]
             )
 
-    company_evidence_text = ""
+    print()
+    print(
+        "===== SCORE PRESERVATION CHECK ====="
+    )
 
-    for source in state.verified_sources:
+    for company in report.get(
+        "companies",
+        [],
+    ):
 
-        if source.get("source_type") == "company":
+        print(
+            f"{company.get('company_name')}: "
+            f"{company.get('overall_score')}"
+        )
 
-            company_evidence_text += (
-                f"Company: "
-                f"{source.get('company', '')}\n"
-                f"Title: {source.get('title', '')}\n"
-                f"URL: {source.get('url', '')}\n"
-                f"Evidence type: "
-                f"{source.get('evidence_type', '')}\n"
-                f"Content: "
-                f"{source.get('content', '')}\n\n"
-            )
-
-    report = report_llm.invoke(
-        f"""
-        Create a structured research report for this question:
-
-        {state.question}
-
-        MARKET EVIDENCE:
-        {market_evidence_text}
-
-        COMPANY EVIDENCE:
-        {company_evidence_text}
-
-        COMPANY SCORES:
-        {company_scores_text}
-
-        IMPORTANT RULES:
-
-        1. Base the report only on the supplied evidence.
-
-        2. Do not invent funding amounts, customers,
-           revenue, valuations, products, or market statistics.
-
-        3. Do not treat an overall score as an objective
-           prediction of future success.
-
-        4. Explain why companies received their scores
-           using the available evidence.
-
-        5. Clearly identify important risks and evidence gaps.
-
-        6. The executive summary should answer the user's
-           research question directly.
-
-        7. The market overview should summarize the
-           Indian AI startup ecosystem using the supplied
-           market evidence.
-
-        8. Include only companies for which company scores
-           are available.
-
-        9. The methodology should explain that the system:
-
-           - discovered companies through web research,
-           - qualified companies using evidence,
-           - verified sources,
-           - scored companies across multiple dimensions,
-           - and synthesized the findings.
-
-        10. The limitations section should mention
-            meaningful limitations in the available evidence.
-
-        11. Keep the report concise but informative.
-
-        Return the result using the ResearchReport schema.
-        """
+    print(
+        "===================================="
     )
 
     return {
-        "final_report": report.model_dump_json(
-            indent=2
+        "final_report": json.dumps(
+            report,
+            indent=2,
         )
     }

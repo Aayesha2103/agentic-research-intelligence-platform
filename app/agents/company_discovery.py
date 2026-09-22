@@ -2,168 +2,244 @@ from app.models.state import ResearchState
 from app.services.llm import get_llm
 
 
-def company_discovery_node(
-    state: ResearchState
-) -> dict:
-    """
-    Company Discovery Agent.
+CANONICAL_COMPANIES = {
+    "sarvam ai": "Sarvam AI",
+    "krutrim": "Krutrim",
+    "krutrim ai": "Krutrim",
+    "corover": "CoRover",
+    "e42": "E42",
+    "yellow.ai": "Yellow.ai",
+    "yellow ai": "Yellow.ai",
+    "uniphore": "Uniphore",
+}
 
-    Uses the research collected from the web to identify
-    candidate Indian AI-focused startups.
-    """
 
-    llm = get_llm()
+def normalize_company_name(
+    company_name: str,
+) -> str:
 
-    research_text = ""
+    cleaned = company_name.strip()
 
-    sorted_sources = sorted(
-        state.sources,
-        key=lambda source: source.get(
-            "relevance_score",
-            0.0
-        ),
-        reverse=True
+    # Remove common numbering produced by LLMs.
+    cleaned = cleaned.lstrip(
+        "0123456789.-) "
     )
 
-    selected_sources = sorted_sources[:30]
+    key = cleaned.lower()
 
-    for source in selected_sources:
-        research_text += (
-            source.get("title", "")
-            + "\n"
-            + source.get("content", "")
-            + "\n\n"
-        )
-
-    print()
-    print("===== COMPANY DISCOVERY INPUT =====")
-    print(
-        "Number of research sources:",
-        len(state.sources)
+    return CANONICAL_COMPANIES.get(
+        key,
+        cleaned,
     )
 
-    print()
-    print("Research source titles:")
 
-    for source in state.sources[:20]:
-        print(
-            "-",
-            source.get("title", "")
-        )
+def normalize_companies(
+    companies: list[str],
+) -> list[str]:
 
-    print("===== END COMPANY DISCOVERY INPUT =====")
-    print()
+    normalized = []
 
-    if not research_text.strip():
-        return {
-            "companies_to_research": []
-        }
+    for company in companies:
 
-    response = llm.invoke(
-        f"""
-        Identify candidate Indian AI-focused startups
-        from the following research evidence.
-
-        Research evidence:
-        {research_text}
-
-        Rules:
-
-        1. Return only specific company names.
-
-        2. The company should be relevant to the
-           Indian AI startup ecosystem.
-
-        3. AI should be a core part of the company's
-           primary product or business.
-
-        4. Do not include large established corporations
-           such as Infosys, TCS, Wipro, Cognizant, or Bosch.
-
-        5. Do not include companies merely because
-           they use AI internally.
-
-        6. Do not include companies merely because
-           they have an office or operations in India.
-
-        7. Do not include companies headquartered
-           outside India merely because they operate
-           in India.
-
-        8. Do not invent company names.
-
-        9. Only select companies that are actually
-           mentioned or clearly supported by the
-           supplied research evidence.
-
-        10. Return at most 8 companies.
-
-        11. If the evidence does not contain enough
-            information to identify any suitable companies,
-            return exactly:
-
-            No companies found.
-
-        Return ONLY the company names,
-        one company per line.
-
-        Do not provide explanations.
-        """
-    )
-
-    print()
-    print("===== RAW COMPANY DISCOVERY RESPONSE =====")
-    print(response.content)
-    print("===== END RAW COMPANY DISCOVERY RESPONSE =====")
-    print()
-
-    companies = []
-
-    response_text = response.content.strip()
-
-    no_company_phrases = [
-        "no companies listed",
-        "no companies found",
-        "no suitable companies",
-        "no company names",
-        "no companies identified",
-    ]
-
-    if any(
-        phrase in response_text.lower()
-        for phrase in no_company_phrases
-    ):
-        return {
-            "companies_to_research": []
-        }
-
-    for line in response_text.splitlines():
-
-        company = line.strip()
-
-        company = company.lstrip(
-            "-•0123456789. "
+        company = normalize_company_name(
+            company
         )
 
         if not company:
             continue
 
-        if "excluded" in company.lower():
-            continue
-
-        if company.lower().startswith(
-            (
-                "the provided",
-                "the research",
-                "there are",
-                "no "
+        if company not in normalized:
+            normalized.append(
+                company
             )
-        ):
+
+    return normalized
+
+
+def company_discovery_node(
+    state: ResearchState,
+) -> dict:
+
+    print()
+    print(
+        "===== COMPANY DISCOVERY INPUT ====="
+    )
+
+    sources = (
+        state.sources
+        + state.market_sources
+        + state.company_sources
+    )
+
+    print(
+        f"Number of research sources: "
+        f"{len(sources)}"
+    )
+
+    print()
+
+    print("Research source titles:")
+
+    for source in sources:
+        print(
+            f"- {source.get('title', '')}"
+        )
+
+    print(
+        "===== END COMPANY DISCOVERY INPUT ====="
+    )
+    print()
+
+    if not sources:
+        print(
+            "No research sources available "
+            "for company discovery."
+        )
+
+        return {
+            "companies_to_research": []
+        }
+
+    evidence_text_parts = []
+
+    for source in sources:
+
+        company = source.get(
+            "company",
+            "",
+        )
+
+        title = source.get(
+            "title",
+            "",
+        )
+
+        content = source.get(
+            "content",
+            "",
+        )
+
+        evidence_text_parts.append(
+            f"COMPANY: {company}\n"
+            f"TITLE: {title}\n"
+            f"CONTENT: {content}"
+        )
+
+    evidence_text = "\n\n".join(
+        evidence_text_parts
+    )
+
+    prompt = f"""
+You are the company discovery agent
+for an Indian AI startup research platform.
+
+User question:
+{state.question}
+
+Research evidence:
+{evidence_text}
+
+Identify the Indian AI startups or
+AI-focused companies that should be
+researched further.
+
+Rules:
+
+1. Use ONLY company names supported by
+   the supplied research evidence.
+
+2. Do not invent company names.
+
+3. Do not include large traditional IT
+   service companies such as Infosys,
+   TCS, Wipro, Cognizant, or Bosch.
+
+4. Return only company names.
+
+5. Do not add explanations.
+
+6. Do not add rankings.
+
+7. Do not add scores.
+
+8. Prefer the company's standard name.
+
+9. If the evidence says "Krutrim AI",
+   return "Krutrim".
+
+10. Return one company per line.
+
+Example:
+
+Sarvam AI
+Krutrim
+CoRover
+"""
+
+    llm = get_llm()
+
+    response = llm.invoke(
+        prompt
+    )
+
+    text = response.content
+
+    if not text:
+        print(
+            "Company discovery returned "
+            "empty output."
+        )
+
+        return {
+            "companies_to_research": []
+        }
+
+    print()
+    print(
+        "===== RAW COMPANY DISCOVERY RESPONSE ====="
+    )
+
+    print(text)
+
+    print(
+        "===== END RAW COMPANY DISCOVERY RESPONSE ====="
+    )
+    print()
+
+    discovered_companies = []
+
+    for line in text.splitlines():
+
+        line = line.strip()
+
+        if not line:
             continue
 
-        if company not in companies:
-            companies.append(company)
+        company = normalize_company_name(
+            line
+        )
+
+        if company not in discovered_companies:
+            discovered_companies.append(
+                company
+            )
+
+    discovered_companies = normalize_companies(
+        discovered_companies
+    )
+
+    print(
+        "Normalized discovered companies:"
+    )
+
+    for company in discovered_companies:
+        print(
+            f"- {company}"
+        )
+
+    print()
 
     return {
-        "companies_to_research": companies[:8]
+        "companies_to_research":
+            discovered_companies
     }

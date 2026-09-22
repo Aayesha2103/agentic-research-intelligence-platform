@@ -2,159 +2,303 @@ from app.models.state import ResearchState
 from app.services.llm import get_planner_llm
 
 
-def planner_node(state: ResearchState) -> ResearchState:
+DEFAULT_COMPANIES = [
+    "Sarvam AI",
+    "Krutrim",
+    "CoRover",
+    "E42",
+    "Yellow.ai",
+    "Uniphore",
+]
+
+
+DEFAULT_TOPICS = [
+    "Indian AI startup funding",
+    "Indian AI startup products and technology",
+    "Indian AI startup customers and traction",
+    "Indian AI startup growth",
+    "Indian AI startup market opportunities",
+    "Indian AI startup competitive differentiation",
+]
+
+
+EXCLUDED_COMPANIES = {
+    "infosys",
+    "tcs",
+    "tata consultancy services",
+    "wipro",
+    "cognizant",
+    "bosch",
+    "bosch india",
+}
+
+
+def clean_company_name(company: str) -> str:
     """
-    Planner node.
-
-    Uses the local Qwen3 LLM to convert the user's question
-    into a structured research plan.
+    Removes numbering and unnecessary formatting
+    from a company name.
     """
 
-    planner = get_planner_llm()
+    company = company.strip()
 
-    plan = planner.invoke(
-        f"""
-        Create a research plan for the following question:
-
-        {state.question}
-
-        Your job is to decide what information must be researched.
-
-        IMPORTANT RULES:
-
-        1. Follow the user's question exactly.
-
-        2. The user did NOT specify a year.
-           Therefore, DO NOT put a specific year such as 2023,
-           2024, 2025, or 2026 in research topics or search queries.
-
-        3. Use wording such as:
-           - current
-           - latest
-           - recent
-           - present
-           when time-sensitive information is required.
-
-        4. Identify companies that are genuinely relevant
-           to the user's research question.
-
-        5. For this project, a company should be included in
-           companies_to_research only when there is strong reason
-           to believe that:
-
-           - it is an Indian company or Indian startup,
-           - AI is a core part of its primary product or business,
-           - and it is relevant to the Indian AI startup ecosystem.
-
-        6. DO NOT include large established corporations,
-           IT-service companies, consulting companies, banks,
-           traditional retailers, or other companies merely
-           because they use AI internally.
-
-        7. DO NOT include companies merely because:
-
-           - they operate in India,
-           - they have an Indian office,
-           - they use AI internally,
-           - they have an AI division,
-           - they provide general technology services,
-           - or they are a large multinational corporation.
-
-        8. DO NOT include companies primarily headquartered
-           outside India merely because they have Indian operations.
-
-        9. Examples of companies that should NOT be included
-           merely because they have Indian operations or
-           AI-related activities include:
-
-           - Bosch
-           - Cognizant
-           - Infosys
-           - TCS
-           - Wipro
-
-        10. Be conservative when identifying companies.
-
-            If you are uncertain whether a company is genuinely
-            an Indian AI-focused startup, DO NOT include it as
-            a confirmed company.
-
-            Instead, use search queries to discover and verify
-            suitable companies through web research.
-
-        11. Do not include unnamed companies.
-
-            Every company in companies_to_research must have
-            a specific company name.
-
-        12. Do not invent facts about companies.
-
-            The plan should identify what needs to be researched.
-            It should not claim that a company is successful,
-            highly valued, or promising without evidence.
-
-        13. Search queries should focus on collecting evidence about:
-
-            - current funding
-            - investors
-            - products
-            - customers
-            - market position
-            - growth
-            - competitive differentiation
-            - recent developments
-            - Indian AI startup ecosystem trends
-            - government support
-            - market opportunities and challenges
-
-        14. Generate approximately 6 to 8 high-value,
-            non-duplicate search queries.
-
-        15. Prefer broad ecosystem queries that can discover
-            suitable Indian AI startups rather than guessing
-            many company names.
-
-        16. Do not create separate search queries for every
-            possible company.
-
-            Company-specific research should happen after
-            suitable candidates have been identified.
-
-        17. Search queries must NOT contain a specific year
-            unless the user explicitly provided that year.
-
-        18. Prefer queries that can return reliable evidence from:
-
-            - company websites
-            - reputable financial publications
-            - established technology publications
-            - government sources
-            - research organizations
-            - credible startup databases
-
-        19. Avoid duplicate or nearly identical search queries.
-
-        20. Return:
-
-            - major research topics
-            - only high-confidence AI-focused Indian companies
-              when there is strong reason to include them
-            - approximately 6 to 8 high-value search queries
-              needed to gather reliable evidence
-
-        Remember:
-
-        The planner should NOT try to answer the user's question.
-
-        The planner should create a research plan that allows
-        downstream web research, qualification, verification,
-        scoring, and report-generation agents to answer it
-        using evidence.
-        """
+    company = company.lstrip(
+        "0123456789.-) "
     )
 
-    state.research_topics = plan.research_topics
-    state.companies_to_research = plan.companies_to_research
-    state.search_queries = plan.search_queries
+    return company
 
-    return state
+
+def validate_companies(
+    companies: list[str],
+) -> list[str]:
+    """
+    Keeps only companies from the approved
+    Indian AI startup candidate list.
+    """
+
+    validated = []
+
+    allowed = {
+        company.lower(): company
+        for company in DEFAULT_COMPANIES
+    }
+
+    for company in companies:
+
+        company = clean_company_name(company)
+
+        if not company:
+            continue
+
+        company_key = company.lower()
+
+        if company_key in EXCLUDED_COMPANIES:
+            continue
+
+        if company_key not in allowed:
+            continue
+
+        canonical_name = allowed[company_key]
+
+        if canonical_name not in validated:
+            validated.append(canonical_name)
+
+    return validated
+
+
+def clean_query(query: str) -> str:
+    """
+    Removes accidental year assumptions and
+    incomplete query endings.
+    """
+
+    query = query.strip()
+
+    year_ranges = [
+        "2022-2023",
+        "2023-2024",
+        "2022–2024",
+        "2023–2024",
+        "2022 - 2024",
+        "2023 - 2024",
+    ]
+
+    for year_range in year_ranges:
+        query = query.replace(
+            year_range,
+            "",
+        )
+
+    words = query.split()
+
+    cleaned_words = []
+
+    for word in words:
+
+        if (
+            len(word) == 4
+            and word.isdigit()
+            and word.startswith("20")
+        ):
+            continue
+
+        cleaned_words.append(word)
+
+    query = " ".join(cleaned_words)
+
+    incomplete_endings = [
+        "in",
+        "with",
+        "for",
+        "and",
+        "or",
+        "of",
+        "to",
+    ]
+
+    changed = True
+
+    while changed:
+
+        changed = False
+
+        lowered = query.lower()
+
+        for ending in incomplete_endings:
+
+            if lowered.endswith(
+                f" {ending}"
+            ):
+
+                query = query[
+                    : -len(ending)
+                ].strip()
+
+                changed = True
+                break
+
+    return query
+
+
+def validate_queries(
+    queries: list[str],
+) -> list[str]:
+    """
+    Cleans and deduplicates search queries.
+    """
+
+    validated = []
+
+    for query in queries:
+
+        query = clean_query(query)
+
+        if len(query) < 10:
+            continue
+
+        if query.lower() in {
+            item.lower()
+            for item in validated
+        }:
+            continue
+
+        validated.append(query)
+
+    return validated[:10]
+
+
+def planner_node(
+    state: ResearchState,
+) -> dict:
+    """
+    Creates a research plan from the user's question.
+    """
+
+    print()
+    print("===== RESEARCH PLAN =====")
+
+    llm = get_planner_llm()
+
+    prompt = f"""
+You are the planning agent for an Indian AI
+startup research platform.
+
+User question:
+{state.question}
+
+Create:
+
+1. Research topics
+2. Search queries
+
+IMPORTANT:
+
+- Do not invent years.
+- Do not invent dates.
+- Do not invent time periods.
+- Do not create company names.
+- Do not provide a company list.
+- Focus on funding, products, customers,
+  growth, market opportunity, and differentiation.
+- Search queries must be complete.
+- Never end a query with "in", "with", "for",
+  "and", "or", "of", or "to".
+- Generate 5 to 10 useful search queries.
+- Generate 5 to 8 research topics.
+"""
+
+    try:
+
+        plan = llm.invoke(prompt)
+
+        research_topics = [
+            topic.strip()
+            for topic in plan.research_topics
+            if topic.strip()
+        ]
+
+        search_queries = validate_queries(
+            plan.search_queries
+        )
+
+        companies = DEFAULT_COMPANIES.copy()
+
+        if not research_topics:
+            research_topics = DEFAULT_TOPICS.copy()
+
+        if not search_queries:
+            search_queries = [
+                "Indian AI startups funding",
+                "Indian AI startups products and technology",
+                "Indian AI startups customers and traction",
+                "Indian AI startups growth",
+                "Indian AI startup market opportunities",
+                "Indian AI startup competitive differentiation",
+            ]
+
+    except Exception as error:
+
+        print(
+            f"Planner failed, using fallback plan: {error}"
+        )
+
+        research_topics = DEFAULT_TOPICS.copy()
+
+        search_queries = [
+            "Indian AI startups funding",
+            "Indian AI startups products and technology",
+            "Indian AI startups customers and traction",
+            "Indian AI startups growth",
+            "Indian AI startup market opportunities",
+            "Indian AI startup competitive differentiation",
+        ]
+
+        companies = DEFAULT_COMPANIES.copy()
+
+    print()
+    print("Research topics:")
+
+    for topic in research_topics:
+        print(f"- {topic}")
+
+    print()
+    print("Companies to research:")
+
+    for company in companies:
+        print(f"- {company}")
+
+    print()
+    print("Search queries:")
+
+    for query in search_queries:
+        print(f"- {query}")
+
+    print()
+    print("===== END RESEARCH PLAN =====")
+    print()
+
+    return {
+        "research_topics": research_topics,
+        "companies_to_research": companies,
+        "search_queries": search_queries,
+    }

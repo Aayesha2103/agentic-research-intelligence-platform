@@ -1,42 +1,60 @@
 from app.models.state import ResearchState
-from app.tools.web_search import search_web
+from app.tools.web_search import search_web, is_web_search_available
+from app.utils.retry import retry
 
 
 def company_research_node(state: ResearchState) -> dict:
-    """
-    Company Research Agent.
-
-    Researches individual companies identified by the Planner.
-    """
+    if not is_web_search_available():
+        print("Company research skipped: Tavily is unavailable.")
+        return {"company_sources": []}
 
     company_sources = []
 
     for company in state.companies_to_research:
-
         queries = [
-            f"{company} India AI startup company product",
-            f"{company} funding investors",
-            f"{company} customers partnerships AI",
+            f"{company} India AI startup product customers",
+            f"{company} India AI startup funding investors growth",
         ]
 
         for query in queries:
-            response = search_web(query)
+            try:
+                results = retry(
+                    lambda q=query: search_web(q),
+                    attempts=1,
+                    delay=2.0,
+                )
+            except Exception as error:
+                print(
+                    f"Company research skipped for "
+                    f"{company}, query '{query}': {error}"
+                )
+                continue
 
-            for result in response.get("results", []):
+            for result in results:
                 company_sources.append(
                     {
                         "company": company,
-                        "query": query,
                         "title": result.get("title", ""),
                         "url": result.get("url", ""),
                         "content": result.get("content", ""),
                         "relevance_score": result.get(
-                            "score",
-                            0.0
+                            "relevance_score",
+                            0.0,
                         ),
+                        "query": query,
                     }
                 )
 
-    return {
-        "company_sources": company_sources
-    }
+            if not is_web_search_available():
+                print(
+                    "Stopping company research because "
+                    "Tavily is unavailable."
+                )
+                return {"company_sources": company_sources}
+
+    print(
+        f"Company research collected "
+        f"{len(company_sources)} sources."
+    )
+
+    return {"company_sources": company_sources}

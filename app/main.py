@@ -1,98 +1,124 @@
-from app.models.state import ResearchState
+import time
+
 from app.graph import build_research_graph
-
-
-graph = build_research_graph()
-
-
-initial_state = ResearchState(
-    question="Analyze the Indian AI startup market and tell me which companies are most promising."
+from app.models.state import ResearchState
+from app.services.memory import (
+    save_research_result,
+    get_previous_research,
+    is_memory_available,
 )
 
 
-final_state = graph.invoke(initial_state)
+def run_research(
+    question: str,
+) -> ResearchState:
 
+    if is_memory_available():
+        print(
+            "Redis memory: available"
+        )
+    else:
+        print(
+            "Redis memory: unavailable "
+            "— continuing without cache"
+        )
 
-print("\n===== RESEARCH PLAN =====")
-
-print("\nResearch topics:")
-for topic in final_state["research_topics"]:
-    print("-", topic)
-
-print("\nCompanies identified by Planner:")
-for company in final_state["companies_to_research"]:
-    print("-", company)
-
-print("\nSearch queries:")
-for query in final_state["search_queries"]:
-    print("-", query)
-
-
-print("\n===== RESEARCH RESULTS =====")
-
-print(
-    "\nGeneral sources:",
-    len(final_state["sources"])
-)
-
-print(
-    "Market sources:",
-    len(final_state["market_sources"])
-)
-
-print(
-    "Company sources:",
-    len(final_state["company_sources"])
-)
-
-print(
-    "Verified sources:",
-    len(final_state["verified_sources"])
-)
-
-
-print("\n===== COMPANY QUALIFICATION =====")
-
-for qualification in final_state["company_qualifications"]:
-
-    print("\nCompany:", qualification["company_name"])
-
-    print(
-        "AI focused:",
-        qualification["is_ai_focused"]
+    previous_result = get_previous_research(
+        question
     )
 
-    print(
-        "Indian:",
-        qualification["is_indian"]
+    if previous_result:
+        print()
+        print(
+            "===== PREVIOUS RESEARCH FOUND ====="
+        )
+        print(
+            "Using cached research from Redis."
+        )
+        print(
+            "==================================="
+        )
+        print()
+
+        return ResearchState(
+            question=question,
+            final_report=previous_result[
+                "report"
+            ],
+        )
+
+    graph = build_research_graph()
+
+    initial_state = ResearchState(
+        question=question
     )
 
-    print(
-        "Startup:",
-        qualification["is_startup"]
+    start_time = time.perf_counter()
+
+    result = graph.invoke(
+        initial_state
     )
 
-    print(
-        "AI is core business:",
-        qualification["ai_is_core_business"]
+    end_time = time.perf_counter()
+
+    latency = (
+        end_time - start_time
     )
 
-    print(
-        "Should research:",
-        qualification["should_research"]
+    result[
+        "total_latency_seconds"
+    ] = round(
+        latency,
+        2,
     )
 
-    print(
-        "Qualification confidence:",
-        qualification["qualification_confidence"]
+    final_state = ResearchState(
+        **result
     )
 
-    print(
-        "Reason:",
-        qualification["reason"]
+    saved = save_research_result(
+        question=question,
+        report=final_state.final_report,
     )
 
-    print("Evidence:")
+    if saved:
+        print(
+            "Research result saved to Redis."
+        )
 
-    for evidence in qualification["evidence"]:
-        print("-", evidence)
+    print()
+    print(
+        "===== RESEARCH COMPLETED ====="
+    )
+    print()
+    print(
+        f"Total latency: "
+        f"{final_state.total_latency_seconds} seconds"
+    )
+    print(
+        f"Confidence score: "
+        f"{final_state.confidence_score}"
+    )
+    print()
+    print(
+        "===== FINAL REPORT ====="
+    )
+    print()
+    print(
+        final_state.final_report
+    )
+    print()
+    print(
+        "===== END FINAL REPORT ====="
+    )
+
+    return final_state
+
+
+if __name__ == "__main__":
+    question = (
+        "Analyze the Indian AI startup market "
+        "and identify promising companies."
+    )
+
+    run_research(question)

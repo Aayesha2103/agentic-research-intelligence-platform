@@ -1,6 +1,7 @@
 import os
 
 import httpx
+
 from dotenv import load_dotenv
 
 
@@ -8,11 +9,6 @@ load_dotenv()
 
 
 def get_supabase_headers() -> dict:
-    """
-    Creates the HTTP headers required to communicate
-    with the Supabase Data API.
-    """
-
     secret_key = os.getenv("SUPABASE_SECRET_KEY")
 
     if not secret_key:
@@ -28,10 +24,6 @@ def get_supabase_headers() -> dict:
 
 
 def get_supabase_url() -> str:
-    """
-    Returns the Supabase project URL.
-    """
-
     url = os.getenv("SUPABASE_URL")
 
     if not url:
@@ -42,24 +34,62 @@ def get_supabase_url() -> str:
     return url
 
 
-def insert_research_document(document: dict) -> dict:
-    """
-    Inserts one research document into the
-    research_documents table.
-    """
+def research_document_exists(
+    source_url: str,
+    company_name: str = "",
+) -> bool:
+
+    if not source_url:
+        return False
 
     url = (
         f"{get_supabase_url()}"
         "/rest/v1/research_documents"
     )
 
-    response = httpx.post(
+    params = {
+        "source_url": f"eq.{source_url}",
+        "company_name": f"eq.{company_name}",
+        "select": "id",
+        "limit": 1,
+    }
+
+    response = httpx.get(
         url,
         headers=get_supabase_headers(),
+        params=params,
+        timeout=30.0,
+    )
+
+    response.raise_for_status()
+
+    return len(response.json()) > 0
+
+
+def insert_research_document(
+    document: dict,
+) -> dict:
+
+    url = (
+        f"{get_supabase_url()}"
+        "/rest/v1/research_documents"
+    )
+
+    headers = {
+        **get_supabase_headers(),
+        "Prefer": "return=representation",
+    }
+
+    response = httpx.post(
+        url,
+        headers=headers,
         json=document,
         timeout=30.0,
     )
 
     response.raise_for_status()
+
+    if not response.content:
+        return {"status": "inserted"}
 
     return response.json()

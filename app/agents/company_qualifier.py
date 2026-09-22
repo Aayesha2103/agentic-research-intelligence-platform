@@ -1,235 +1,212 @@
 from app.models.state import ResearchState
 
 
-import re
+ESTABLISHED_COMPANIES = {
+    "infosys",
+    "tcs",
+    "tata consultancy services",
+    "wipro",
+    "cognizant",
+    "bosch",
+    "bosch india",
+}
 
 
-def count_evidence(
-    text: str,
-    keywords: list[str]
-) -> int:
-    """
-    Counts how many different evidence keywords
-    are present in the supplied text.
+AI_KEYWORDS = {
+    "artificial intelligence",
+    "ai company",
+    "ai startup",
+    "machine learning",
+    "generative ai",
+    "conversational ai",
+    "computer vision",
+    "natural language processing",
+    "nlp",
+    "robotics",
+    "ai cloud",
+}
 
-    Whole-word matching is used so that a keyword
-    does not accidentally match part of another word.
-    """
 
-    count = 0
+STARTUP_KEYWORDS = {
+    "startup",
+    "venture funding",
+    "funding round",
+    "raised",
+    "investors",
+    "backed by",
+    "seed funding",
+    "series a",
+    "series b",
+    "series c",
+    "revenue growth",
+    "revenue",
+    "profit",
+    "valuation",
+    "strategic pivot",
+}
 
-    for keyword in keywords:
 
-        pattern = r"\b" + re.escape(keyword) + r"\b"
+INDIAN_KEYWORDS = {
+    "india",
+    "indian",
+    "india-based",
+    "based in india",
+    "headquartered in india",
+    "indian market",
+}
 
-        if re.search(pattern, text):
-            count += 1
 
-    return count
-
-def company_qualification_node(
-    state: ResearchState
-) -> dict:
-    """
-    Company Qualification Agent.
-
-    Uses deterministic evidence scoring to identify
-    companies that are strong candidates for further research.
-    """
+def company_qualification_node(state: ResearchState) -> dict:
 
     qualifications = []
 
-    established_companies = {
-        "infosys",
-        "tcs",
-        "tata consultancy services",
-        "wipro",
-        "cognizant",
-        "bosch india",
-    }
+    evidence_by_company = {}
 
-    ai_keywords = [
-        "artificial intelligence",
-        "ai company",
-        "ai startup",
-        "machine learning",
-        "generative ai",
-        "conversational ai",
-        "computer vision",
-        "natural language processing",
-        "nlp",
-        "robotics",
-    ]
+    for document in state.retrieved_documents:
 
-    startup_keywords = [
-        "startup",
-        "venture funding",
-        "funding round",
-        "raised",
-        "investors",
-        "backed by",
-        "seed funding",
-        "series a",
-        "series b",
-        "series c",
-    ]
+        company = document.get(
+            "company_name",
+            "",
+        ).strip()
 
-    indian_keywords = [
-        "india",
-        "indian",
-        "india-based",
-        "based in india",
-        "headquartered in india",
-        "founded in india",
-    ]
+        if not company:
+            continue
+
+        evidence_by_company.setdefault(
+            company,
+            [],
+        ).append(
+            document.get("content", "")
+        )
+
+    companies = []
 
     for company in state.companies_to_research:
 
-        company_sources = [
-            source
-            for source in state.company_sources
-            if source.get("company") == company
-        ]
+        company = company.strip()
 
-        evidence_text = ""
+        if company and company not in companies:
+            companies.append(company)
 
-        for source in company_sources:
+    for company in evidence_by_company:
 
-            evidence_text += (
-                source.get("title", "")
-                + " "
-                + source.get("content", "")
-                + " "
-            )
+        if company and company not in companies:
+            companies.append(company)
 
-        evidence_text = evidence_text.lower()
+    for company in companies:
 
-        company_name_lower = company.lower()
+        normalized_name = company.lower().strip()
 
-        is_established = (
-            company_name_lower
-            in established_companies
-        )
-
-        ai_evidence_count = count_evidence(
-            evidence_text,
-            ai_keywords
-        )
-
-        startup_evidence_count = count_evidence(
-            evidence_text,
-            startup_keywords
-        )
-
-        indian_evidence_count = count_evidence(
-            evidence_text,
-            indian_keywords
-        )
-
-        if is_established:
+        if normalized_name in ESTABLISHED_COMPANIES:
 
             qualifications.append(
                 {
                     "company_name": company,
-                    "is_ai_focused": False,
-                    "is_indian": indian_evidence_count > 0,
-                    "is_startup": False,
-                    "ai_is_core_business": False,
                     "should_research": False,
-                    "qualification_confidence": 0.98,
+                    "confidence": 0.98,
                     "reason": (
-                        "Company is classified as an "
-                        "established corporation rather "
-                        "than an AI startup."
+                        "Established company excluded from "
+                        "startup-focused analysis."
                     ),
-                    "evidence": [
-                        "Matched established-company exclusion rule."
-                    ],
                 }
             )
 
             continue
 
-        has_strong_ai_evidence = (
-            ai_evidence_count >= 2
+        evidence = evidence_by_company.get(
+            company,
+            [],
         )
 
-        has_strong_startup_evidence = (
-            startup_evidence_count >= 2
-        )
+        evidence_text = " ".join(
+            evidence
+        ).lower()
 
-        has_indian_evidence = (
-            indian_evidence_count >= 1
-        )
-
-        if (
-            has_strong_ai_evidence
-            and has_strong_startup_evidence
-            and has_indian_evidence
-        ):
+        if not evidence:
 
             qualifications.append(
                 {
                     "company_name": company,
-                    "is_ai_focused": True,
-                    "is_indian": True,
-                    "is_startup": True,
-                    "ai_is_core_business": True,
-                    "should_research": True,
-                    "qualification_confidence": 0.90,
+                    "should_research": False,
+                    "confidence": 0.40,
                     "reason": (
-                        "Multiple independent evidence indicators "
-                        "support the company being an Indian "
-                        "AI-focused startup."
+                        "No company-specific evidence "
+                        "was retrieved."
                     ),
-                    "evidence": [
-                        (
-                            f"AI evidence indicators: "
-                            f"{ai_evidence_count}"
-                        ),
-                        (
-                            f"Startup evidence indicators: "
-                            f"{startup_evidence_count}"
-                        ),
-                        (
-                            f"Indian connection indicators: "
-                            f"{indian_evidence_count}"
-                        ),
-                    ],
                 }
             )
 
             continue
+
+        ai_evidence = sum(
+            1
+            for keyword in AI_KEYWORDS
+            if keyword in evidence_text
+        )
+
+        startup_evidence = sum(
+            1
+            for keyword in STARTUP_KEYWORDS
+            if keyword in evidence_text
+        )
+
+        indian_evidence = sum(
+            1
+            for keyword in INDIAN_KEYWORDS
+            if keyword in evidence_text
+        )
+
+        company_name_evidence = (
+            company.lower() in evidence_text
+        )
+
+        enough_evidence = (
+            company_name_evidence
+            and ai_evidence >= 1
+            and (
+                indian_evidence >= 1
+                or startup_evidence >= 1
+            )
+        )
 
         qualifications.append(
             {
                 "company_name": company,
-                "is_ai_focused": ai_evidence_count > 0,
-                "is_indian": indian_evidence_count > 0,
-                "is_startup": startup_evidence_count > 0,
-                "ai_is_core_business": False,
-                "should_research": False,
-                "qualification_confidence": 0.55,
-                "reason": (
-                    "Available evidence is insufficient "
-                    "to confidently qualify the company."
+                "should_research": enough_evidence,
+                "confidence": (
+                    0.90
+                    if enough_evidence
+                    else 0.55
                 ),
-                "evidence": [
-                    (
-                        f"AI evidence indicators: "
-                        f"{ai_evidence_count}"
-                    ),
-                    (
-                        f"Startup evidence indicators: "
-                        f"{startup_evidence_count}"
-                    ),
-                    (
-                        f"Indian connection indicators: "
-                        f"{indian_evidence_count}"
-                    ),
-                ],
+                "reason": (
+                    "Company-specific evidence supports "
+                    "AI activity and business/startup relevance."
+                    if enough_evidence
+                    else
+                    "Evidence is insufficient to qualify "
+                    "the company."
+                ),
             }
         )
+
+    print()
+    print("===== COMPANY QUALIFICATION =====")
+    print(
+        f"Companies evaluated: "
+        f"{len(qualifications)}"
+    )
+
+    for qualification in qualifications:
+
+        print(
+            f"{qualification['company_name']}: "
+            f"{qualification['should_research']}"
+        )
+
+    print(
+        "===== END COMPANY QUALIFICATION ====="
+    )
+    print()
 
     return {
         "company_qualifications": qualifications
