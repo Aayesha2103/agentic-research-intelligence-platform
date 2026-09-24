@@ -321,7 +321,7 @@ Required format:
     # ------------------------------------------------------------
 
     score_lookup = {
-        item["company_name"]:
+        item.get("company", item.get("company_name", "")):
             item["overall_score"]
         for item in state.company_scores
     }
