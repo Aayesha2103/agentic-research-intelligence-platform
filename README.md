@@ -2,13 +2,6 @@
 
 > An evidence-aware **Agentic AI research system** that turns complex research questions into structured, validated reports.
 
-![Python](https://img.shields.io/badge/Python-3.14-blue)
-![LangGraph](https://img.shields.io/badge/LangGraph-Agentic%20Workflow-black)
-![Qwen3](https://img.shields.io/badge/Qwen3-8B-black)
-![RAG](https://img.shields.io/badge/RAG-Enabled-purple)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-teal)
-![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-red)
-
 ## 🚀 Overview
 
 Unlike a basic **LLM → Answer** application, this project uses a multi-stage AI workflow:
