@@ -5,9 +5,7 @@
 > AI, RAG, web search, vector retrieval, evidence-based scoring, and
 > hallucination validation.**
 
-```{=html}
 
-```
 ![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Orchestration-1C3C3C)
 ![Qwen3](https://img.shields.io/badge/Qwen3-8B-black)
@@ -17,12 +15,6 @@
 ![pgvector](https://img.shields.io/badge/pgvector-Vector%20Search-3B6E8F)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-FF4B4B?logo=streamlit&logoColor=white)
-
-```{=html}
-
-```
-
-------------------------------------------------------------------------
 
 ## ✨ What is this?
 
