@@ -1,550 +1,725 @@
-Agentic Research Intelligence Platform
+# 🤖 Agentic Research Intelligence Platform
 
-An evidence-aware AI research system that turns complex research questions into a structured, multi-agent investigation — with web research, RAG, source verification, scoring, and hallucination validation.
+> **An evidence-aware AI research system that transforms complex
+> research questions into structured, multi-stage research using Agentic
+> AI, RAG, web search, vector retrieval, evidence-based scoring, and
+> hallucination validation.**
 
+```{=html}
+<p align="center">
+```
+![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Orchestration-1C3C3C)
+![Qwen3](https://img.shields.io/badge/Qwen3-8B-black)
+![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM-black)
+![RAG](https://img.shields.io/badge/RAG-Enabled-8A2BE2)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white)
+![pgvector](https://img.shields.io/badge/pgvector-Vector%20Search-3B6E8F)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-FF4B4B?logo=streamlit&logoColor=white)
 
+```{=html}
+</p>
+```
 
+------------------------------------------------------------------------
 
+## ✨ What is this?
 
+Most GenAI applications follow a simple pattern:
 
+``` text
+User Question → LLM → Answer
+```
 
+This project takes a different approach.
 
+The **Agentic Research Intelligence Platform** treats research as a
+multi-stage engineering workflow:
 
+``` text
+Question
+   ↓
+Planning
+   ↓
+Web Research
+   ↓
+Company Discovery
+   ↓
+Company Research
+   ↓
+Source Verification
+   ↓
+RAG Indexing
+   ↓
+Vector Retrieval
+   ↓
+Company Qualification
+   ↓
+Evidence-Aware Scoring
+   ↓
+LLM Synthesis
+   ↓
+Hallucination Validation
+   ↓
+Final Research Report
+```
 
+The goal is to demonstrate how modern **Agentic AI + Generative AI +
+RAG** systems can be designed beyond a single LLM call.
 
+------------------------------------------------------------------------
 
+# 🚀 Why I Built This
 
+A research question such as:
 
-Why this project?
+> **"Analyze the Indian AI startup market and identify promising
+> companies."**
 
-Most AI research demos follow a simple pattern:
+requires more than generating a fluent answer.
 
-User Question
+A useful research system should be able to:
+
+-   break a broad problem into smaller research tasks
+-   identify companies and research topics
+-   search for external evidence
+-   store research knowledge
+-   retrieve relevant information semantically
+-   distinguish verified and unverified evidence
+-   score companies using a consistent methodology
+-   measure evidence coverage
+-   generate a structured report
+-   validate the generated result
+-   track tokens, latency, and system performance
+
+This project was built to explore exactly that architecture.
+
+------------------------------------------------------------------------
+
+# 🧠 Core AI Architecture
+
+``` text
+                         USER QUESTION
+                              │
+                              ▼
+                       ┌─────────────┐
+                       │   PLANNER   │
+                       │  Qwen3 8B   │
+                       └──────┬──────┘
+                              │
+                ┌─────────────┴─────────────┐
+                ▼                           ▼
+        ┌──────────────┐             ┌───────────────┐
+        │ Web Research │             │    Company    │
+        │    Tavily    │             │   Discovery   │
+        └──────┬───────┘             └───────┬───────┘
+               │                             │
+               └─────────────┬───────────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │ Company Research│
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │ Source Verifier │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │   RAG Indexer   │
+                    │     BGE-M3      │
+                    └────────┬────────┘
+                             ▼
+                 ┌─────────────────────────┐
+                 │ PostgreSQL + pgvector  │
+                 └────────────┬────────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │  RAG Retriever  │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │   Qualifier     │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │ Evidence-Aware  │
+                    │     Scorer      │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │   Synthesizer   │
+                    │     Qwen3       │
+                    └────────┬────────┘
+                             ▼
+                    ┌─────────────────┐
+                    │  Hallucination  │
+                    │    Validator    │
+                    └────────┬────────┘
+                             ▼
+                       FINAL REPORT
+```
+
+------------------------------------------------------------------------
+
+# ⭐ Key Features
+
+### 🧩 Agentic Planning
+
+The system uses **LangGraph** to coordinate multiple specialized
+research stages instead of treating the LLM as a single chatbot.
+
+### 🔎 Web Research
+
+Uses **Tavily** to retrieve external research evidence.
+
+### 📚 Retrieval-Augmented Generation
+
+Research evidence is embedded using **BGE-M3** and stored in
+**PostgreSQL + pgvector**.
+
+``` text
+Research Text
      ↓
-     LLM
+BGE-M3 Embedding
      ↓
-   Answer
+1024-dimensional Vector
+     ↓
+pgvector
+     ↓
+Semantic Retrieval
+     ↓
+LLM Context
+```
 
-That works for a chatbot.
+### 🛡️ Source Verification
 
-But research is different.
+Sources are explicitly classified as:
 
-A useful research system needs to:
+-   `verified`
+-   `unverified`
+-   `demo`
 
-break a broad question into smaller tasks
-search for external evidence
-distinguish stronger and weaker sources
-store information for semantic retrieval
-retrieve relevant evidence before generating an answer
-evaluate entities using a consistent framework
-track confidence and evidence coverage
-validate the generated result
-expose measurable latency and token usage
+This prevents fallback/demo evidence from being represented as
+independently verified research.
 
-That's the problem this project is designed to address.
+### 📊 Evidence-Aware Scoring
 
-What I built
+Companies are evaluated across six categories:
 
-The Agentic Research Intelligence Platform is a LangGraph-based AI research pipeline that transforms a natural-language research question into a structured research report.
+  Category                      Purpose
+  ----------------------------- ----------------------------------
+  Funding                       Investment and funding evidence
+  Product                       Product and technology evidence
+  Customer Traction             Customer/client evidence
+  Growth                        Growth and revenue evidence
+  Market Opportunity            Market potential
+  Competitive Differentiation   Differentiation from competitors
+
+Unsupported categories receive zero rather than being guessed by the
+LLM.
+
+### 🎯 Evidence-Based Confidence
+
+Confidence is calculated from actual evidence coverage.
 
 For example:
 
-"Analyze the Indian AI startup market and identify promising companies."
-
-The system doesn't simply send this question to an LLM.
-
-Instead, it creates a research workflow:
-
-                     USER QUESTION
-                           │
-                           ▼
-                       PLANNER
-                           │
-             ┌─────────────┴─────────────┐
-             ▼                           ▼
-       WEB RESEARCH              COMPANY DISCOVERY
-             │                           │
-             └─────────────┬─────────────┘
-                           ▼
-                   COMPANY RESEARCH
-                           │
-                           ▼
-                  SOURCE VERIFICATION
-                           │
-                           ▼
-                    RAG INDEXING
-                           │
-                    BGE-M3 Embeddings
-                           │
-                           ▼
-                PostgreSQL + pgvector
-                           │
-                           ▼
-                    RAG RETRIEVAL
-                           │
-                           ▼
-                  COMPANY QUALIFICATION
-                           │
-                           ▼
-                 EVIDENCE-AWARE SCORING
-                           │
-                           ▼
-                     SYNTHESIZER
-                           │
-                           ▼
-               HALLUCINATION VALIDATOR
-                           │
-                           ▼
-                     FINAL REPORT
-Key Features
-Agentic Research Workflow
-
-Uses LangGraph to orchestrate specialized research stages rather than relying on a single LLM call.
-
-Local LLM
-
-Uses Qwen3 8B through Ollama for local planning and report synthesis.
-
-This avoids requiring a paid hosted LLM API for the primary model.
-
-Web Research
-
-Uses Tavily to gather external research evidence.
-
-RAG Pipeline
-
-Research documents are:
-
-Research Evidence
-       ↓
-BGE-M3 Embedding
-       ↓
-1024-dimensional Vector
-       ↓
-PostgreSQL + pgvector
-       ↓
-Semantic Retrieval
-Source Verification
-
-Sources are classified as:
-
-verified
-unverified
-demo
-
-This prevents fallback/demo evidence from being treated as independently verified research.
-
-Evidence-Aware Scoring
-
-Companies are evaluated across:
-
-Category	What it represents
-Funding	Funding/investment evidence
-Product	Product/technology evidence
-Customer Traction	Customer/client evidence
-Growth	Growth/revenue evidence
-Market Opportunity	Market potential evidence
-Competitive Differentiation	Differentiation evidence
-
-The final score is adjusted according to how many categories are actually supported by evidence.
-
-Confidence Scoring
-
-Confidence is based on evidence coverage, not how confident the LLM sounds.
-
-This means the system can legitimately return:
-
-Confidence: 0%
+``` text
 Verified Sources: 0
+Confidence: 0%
+```
 
-when independently verified evidence is unavailable.
+is a valid result when the system cannot independently verify the
+available evidence.
 
-Hallucination Validation
+### 🧪 Hallucination Validation
 
-After the LLM generates the final report, a validation stage checks that:
+The final report is checked against deterministic research state.
 
-reported companies were actually researched
-reported scores match deterministic scores
-generated entities belong to the research plan
-validation issues are surfaced in the final report
-Observability
+The validator checks whether:
 
-Tracks:
+-   reported companies were actually researched
+-   reported scores match deterministic scores
+-   reported entities belong to the research plan
+-   validation issues need to be surfaced
 
-input tokens
-output tokens
-total tokens
-latency
-estimated cost
-optional Langfuse traces
-Persistent Memory
+### 📈 Observability
 
-Redis can cache previous research results so repeated questions can reuse previously generated reports.
+The system tracks:
 
-The application also continues gracefully when Redis is unavailable.
+-   input tokens
+-   output tokens
+-   total tokens
+-   latency
+-   estimated cost
+-   optional Langfuse traces
 
-API + UI
+### 🧠 Persistent Memory
 
-The research engine is exposed through:
+Redis can cache previous research results so repeated questions can
+reuse previous results.
 
-FastAPI
+The application also handles Redis being unavailable without crashing
+the research pipeline.
+
+### ⚡ API + Frontend
+
+The AI pipeline is exposed through:
+
+**FastAPI**
 
 and presented through:
 
-Streamlit
+**Streamlit**
 
-Architecture
-                         ┌──────────────────┐
-                         │     Streamlit    │
-                         │    Frontend UI   │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │     FastAPI      │
-                         │      Backend     │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │    LangGraph     │
-                         │  Orchestration   │
-                         └────────┬─────────┘
-                                  │
-             ┌────────────────────┼────────────────────┐
-             │                    │                    │
-             ▼                    ▼                    ▼
-        ┌─────────┐        ┌────────────┐       ┌────────────┐
-        │ Planner │        │ Web Search │       │ Discovery  │
-        └─────────┘        └─────┬──────┘       └─────┬──────┘
-                                  │                    │
-                                  └─────────┬──────────┘
-                                            ▼
-                                  ┌─────────────────┐
-                                  │ Source Verifier │
-                                  └────────┬────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │   BGE-M3 RAG    │
-                                  │    Indexing     │
-                                  └────────┬────────┘
-                                           │
-                                           ▼
-                              ┌─────────────────────────┐
-                              │ PostgreSQL + pgvector   │
-                              └────────────┬────────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │    Retriever    │
-                                  └────────┬────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │   Qualification │
-                                  └────────┬────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │     Scorer      │
-                                  └────────┬────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │    Synthesizer  │
-                                  └────────┬────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │    Validator    │
-                                  └────────┬────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │  Research Report│
-                                  └─────────────────┘
-Tech Stack
-Technology	Purpose
-Python	Core application
-LangGraph	Agent orchestration
-Qwen3 8B	Local generative LLM
-Ollama	Local model runtime
-Tavily	Web research
-BGE-M3	Text embeddings
-RAG	Evidence retrieval
-PostgreSQL	Persistent database
-pgvector	Vector similarity search
-Supabase	Managed PostgreSQL + pgvector
-Pydantic	Data validation + structured outputs
-FastAPI	Backend API
-Uvicorn	ASGI server
-Streamlit	Frontend
-Redis	Optional research-result memory/cache
-Langfuse	Optional observability
-HTTPX	HTTP communication
-pytest	Testing
-Git/GitHub	Version control
-AI / GenAI Architecture
+------------------------------------------------------------------------
 
-The project combines several important GenAI patterns.
+# 🏗️ Technology Stack
 
-1. Structured LLM Output
+  Technology       Role
+  ---------------- -----------------------------------
+  **Python**       Core application
+  **LangGraph**    Agent/workflow orchestration
+  **Qwen3 8B**     Local generative LLM
+  **Ollama**       Local LLM runtime
+  **Tavily**       Web search/research
+  **BGE-M3**       Embedding model
+  **RAG**          Evidence retrieval architecture
+  **PostgreSQL**   Persistent database
+  **pgvector**     Vector similarity search
+  **Supabase**     Managed PostgreSQL + pgvector
+  **Pydantic**     Validation and structured outputs
+  **FastAPI**      Backend REST API
+  **Uvicorn**      ASGI server
+  **Streamlit**    Python frontend
+  **Redis**        Optional cache/memory
+  **Langfuse**     Observability
+  **HTTPX**        HTTP communication
+  **pytest**       Testing
+  **Git/GitHub**   Version control
 
-The planner doesn't return arbitrary text.
+------------------------------------------------------------------------
 
-It generates a structured ResearchPlan:
+# 🔥 What Makes This an AI/ML Project?
 
-ResearchPlan
-├── research_topics
-├── companies_to_research
-└── search_queries
+This project combines several important modern AI engineering concepts:
 
-This makes LLM output usable by deterministic downstream code.
+``` text
+                 Generative AI
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+       Qwen3                   LangGraph
+          │                       │
+          └───────────┬───────────┘
+                      ▼
+                  Agentic AI
+                      │
+                      ▼
+                     RAG
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+      Embeddings              Vector Search
+       BGE-M3                  pgvector
+          │                       │
+          └───────────┬───────────┘
+                      ▼
+             Evidence Pipeline
+                      │
+                      ▼
+             Validation Layer
+```
 
-2. Agentic Orchestration
+The project is not simply:
 
-Instead of:
+> **"Ask GPT and display the answer."**
 
-Prompt → LLM → Answer
+It demonstrates the engineering required to build a more reliable AI
+application around an LLM.
 
-the system uses:
+------------------------------------------------------------------------
 
-Goal
+# 🔗 Agentic Workflow
+
+The LangGraph workflow can be summarized as:
+
+``` text
+START
+  │
+  ▼
+Planner
+  │
+  ├───────────────┐
+  ▼               ▼
+Web Research   Market Research
+  │               │
+  └───────┬───────┘
+          ▼
+   Company Discovery
+          │
+          ▼
+   Company Research
+          │
+          ▼
+   Source Verification
+          │
+          ▼
+      RAG Indexer
+          │
+          ▼
+      RAG Retriever
+          │
+          ▼
+  Company Qualification
+          │
+          ▼
+        Scorer
+          │
+          ▼
+      Synthesizer
+          │
+          ▼
+ Hallucination Validator
+          │
+          ▼
+         END
+```
+
+------------------------------------------------------------------------
+
+# 🧱 Project Structure
+
+``` text
+agentic-research-intelligence-platform/
+│
+├── app/
+│   ├── agents/
+│   │   ├── planner.py
+│   │   ├── researcher.py
+│   │   ├── market_researcher.py
+│   │   ├── company_discovery.py
+│   │   ├── company_researcher.py
+│   │   ├── verifier.py
+│   │   ├── rag_indexer.py
+│   │   ├── retriever.py
+│   │   ├── company_qualifier.py
+│   │   ├── scorer.py
+│   │   ├── confidence.py
+│   │   ├── synthesizer.py
+│   │   └── hallucination_validator.py
+│   │
+│   ├── models/
+│   │   ├── planning.py
+│   │   └── state.py
+│   │
+│   ├── services/
+│   │   ├── llm.py
+│   │   ├── embeddings.py
+│   │   ├── supabase_client.py
+│   │   ├── rag_retriever.py
+│   │   ├── memory.py
+│   │   ├── observability.py
+│   │   └── usage.py
+│   │
+│   ├── tools/
+│   │   ├── web_search.py
+│   │   └── demo_research.py
+│   │
+│   ├── api.py
+│   ├── graph.py
+│   ├── main.py
+│   └── streamlit_app.py
+│
+├── tests/
+├── .gitignore
+├── requirements.txt
+├── pytest.ini
+└── README.md
+```
+
+------------------------------------------------------------------------
+
+# 🔬 RAG Pipeline
+
+One of the most important parts of the project is the RAG pipeline.
+
+## Step 1 --- Research Evidence
+
+The system collects research content from web sources.
+
+``` text
+Company → Research Query → Retrieved Evidence
+```
+
+## Step 2 --- Embedding
+
+The evidence is converted into a numerical representation using
+**BGE-M3**.
+
+``` text
+Text → BGE-M3 → 1024-dimensional vector
+```
+
+## Step 3 --- Storage
+
+The vector and metadata are stored in PostgreSQL using pgvector.
+
+``` text
+┌─────────────────────────────────────┐
+│ PostgreSQL                          │
+│                                     │
+│ content                             │
+│ source_url                          │
+│ source_title                        │
+│ company_name                        │
+│ evidence_type                       │
+│ embedding vector(1024)              │
+└─────────────────────────────────────┘
+```
+
+## Step 4 --- Retrieval
+
+A research query is embedded and compared with stored vectors.
+
+``` text
+Query
  ↓
-Plan
- ↓
-Act
- ↓
-Retrieve
- ↓
-Evaluate
- ↓
-Generate
- ↓
-Validate
-3. Retrieval-Augmented Generation
-
-The LLM isn't expected to know everything.
-
-The system retrieves relevant research evidence first:
-
-Question
-   ↓
 Embedding
-   ↓
-Vector Search
-   ↓
-Relevant Evidence
-   ↓
-LLM
-   ↓
-Grounded Report
-4. Deterministic Guardrails
-
-The project deliberately combines probabilistic AI with deterministic logic.
-
-Examples:
-
-LLM
  ↓
-Company candidates
+Vector Similarity Search
  ↓
-Deterministic qualification
- ↓
-Evidence
- ↓
-Deterministic score adjustment
- ↓
-LLM synthesis
- ↓
-Deterministic validation
+Top Relevant Documents
+```
 
-This is one of the central engineering ideas behind the project.
+## Step 5 --- Generation
 
-Evidence-Aware Scoring
+Retrieved evidence is passed into the synthesis stage.
 
-The scoring system does not assume that missing evidence means a company is strong or weak.
+This is the core RAG pattern:
 
-Instead:
+``` text
+Retrieve → Augment → Generate
+```
 
-Supported Categories
-        ↓
-Calculate Supported Score
-        ↓
-Measure Evidence Coverage
-        ↓
-Adjust Overall Score
+------------------------------------------------------------------------
+
+# 📊 Evidence-Aware Scoring
+
+The project evaluates companies across six dimensions.
+
+Instead of allowing the model to invent missing information, unsupported
+categories receive zero.
 
 Conceptually:
 
+``` python
 evidence_adjusted_score = (
     supported_score
     * (supported_category_count / 6)
 )
+```
 
-Therefore, a company with strong evidence in only 2 out of 6 categories doesn't receive the same confidence as a company with evidence across all six.
+This means evidence coverage affects the final score.
 
-Reliability Layer
+For example:
 
-The project contains several layers designed to reduce unsupported output:
+``` text
+6 supported categories
+        ↓
+Full evidence coverage
 
-                 LLM
-                  │
-                  ▼
-          ┌───────────────┐
-          │ Source        │
-          │ Verification  │
-          └───────┬───────┘
-                  │
-                  ▼
-          ┌───────────────┐
-          │ Qualification │
-          └───────┬───────┘
-                  │
-                  ▼
-          ┌───────────────┐
-          │ Evidence-aware│
-          │    Scoring    │
-          └───────┬───────┘
-                  │
-                  ▼
-          ┌───────────────┐
-          │   Synthesis   │
-          └───────┬───────┘
-                  │
-                  ▼
-          ┌───────────────┐
-          │ Hallucination │
-          │   Validation  │
-          └───────────────┘
+2 supported categories
+        ↓
+Strong penalty for limited evidence
+```
 
-The goal is not to claim that the system is hallucination-free.
+This makes the scoring mechanism more transparent than simply asking an
+LLM:
 
-The goal is to make unsupported behavior detectable and constrained.
+> "Give this startup a score out of 10."
 
-Example Workflow
-Input
-Analyze the Indian AI startup market
-and identify promising companies.
-Planner
+------------------------------------------------------------------------
 
-Produces:
+# 🛡️ Reliability Architecture
 
-Research Topics
-├── Funding
-├── Product
-├── Customer Traction
-├── Growth
-├── Market Opportunity
-└── Competitive Differentiation
+The system deliberately combines **probabilistic LLM components** with
+**deterministic software logic**.
 
-and generates relevant companies/search queries.
-
-Research
-
-Tavily searches for evidence.
-
-Verification
-
-Sources are classified:
-
-Verified
-Unverified
-Demo
-RAG
-
-Evidence is embedded:
-
-Text
+``` text
+LLM
  ↓
-BGE-M3
+Research Plan
  ↓
-1024-dimensional vector
+Deterministic Qualification
  ↓
-pgvector
-Retrieval
+Retrieved Evidence
+ ↓
+Deterministic Evidence Scoring
+ ↓
+LLM Synthesis
+ ↓
+Deterministic Validation
+```
 
-Relevant company-specific evidence is retrieved.
+This separation is important because the LLM should not be the only
+component responsible for deciding whether its own output is correct.
 
-Scoring
+------------------------------------------------------------------------
 
-Companies are evaluated across six dimensions.
+# 🧪 Example
 
-Synthesis
+### Input
 
-Qwen3 generates the final structured report.
+``` text
+Analyze the Indian AI startup market and identify promising companies.
+```
 
-Validation
+### Planner
 
-The system checks that the generated report matches the deterministic research state.
+Produces research topics and candidate companies.
 
-Project Structure
-app/
-│
-├── agents/
-│   ├── planner.py
-│   ├── researcher.py
-│   ├── market_researcher.py
-│   ├── company_discovery.py
-│   ├── company_researcher.py
-│   ├── verifier.py
-│   ├── rag_indexer.py
-│   ├── retriever.py
-│   ├── company_qualifier.py
-│   ├── scorer.py
-│   ├── confidence.py
-│   ├── synthesizer.py
-│   └── hallucination_validator.py
-│
-├── models/
-│   ├── planning.py
-│   └── state.py
-│
-├── services/
-│   ├── llm.py
-│   ├── embeddings.py
-│   ├── supabase_client.py
-│   ├── rag_retriever.py
-│   ├── memory.py
-│   ├── observability.py
-│   └── usage.py
-│
-├── tools/
-│   ├── web_search.py
-│   └── demo_research.py
-│
-├── api.py
-├── graph.py
-├── main.py
-└── streamlit_app.py
-Running Locally
-1. Clone
+### Research
+
+Searches for:
+
+``` text
+Funding
+Products
+Customers
+Growth
+Market opportunity
+Competitive differentiation
+```
+
+### Retrieval
+
+Relevant evidence is retrieved from the vector database.
+
+### Scoring
+
+Companies are scored using the available evidence.
+
+### Synthesis
+
+Qwen3 generates a structured report.
+
+### Validation
+
+The final report is checked against the research state.
+
+------------------------------------------------------------------------
+
+# 🖥️ Application
+
+The project provides a Streamlit interface with:
+
+-   research query input
+-   research progress state
+-   confidence score
+-   verified source count
+-   latency
+-   token usage
+-   executive summary
+-   market overview
+-   company analysis
+-   evidence-adjusted scores
+-   methodology
+-   limitations
+-   validation status
+-   downloadable research report
+
+------------------------------------------------------------------------
+
+# 🔌 API
+
+FastAPI exposes the research pipeline.
+
+### Health Check
+
+``` http
+GET /health
+```
+
+Response:
+
+``` json
+{
+  "status": "ok"
+}
+```
+
+### Research Endpoint
+
+``` http
+POST /research
+```
+
+Request:
+
+``` json
+{
+  "question": "Analyze the Indian AI startup market and identify promising companies."
+}
+```
+
+The response includes:
+
+``` text
+Final Report
+Confidence Score
+Verified Source Count
+Latency
+Input Tokens
+Output Tokens
+Total Tokens
+Estimated Cost
+```
+
+------------------------------------------------------------------------
+
+# ⚙️ Installation
+
+## 1. Clone the repository
+
+``` bash
 git clone https://github.com/Aayesha2103/agentic-research-intelligence-platform.git
 cd agentic-research-intelligence-platform
-2. Create environment
+```
+
+## 2. Create a virtual environment
+
+``` bash
 python -m venv .venv
-3. Activate
+```
 
-Windows PowerShell:
+## 3. Activate it
 
+### Windows PowerShell
+
+``` powershell
 .\.venv\Scripts\Activate.ps1
-4. Install dependencies
+```
+
+## 4. Install dependencies
+
+``` bash
 pip install -r requirements.txt
-5. Install and run Ollama
+```
 
-Install Ollama and pull the required models:
+## 5. Install Ollama models
 
+``` bash
 ollama pull qwen3:8b
 ollama pull bge-m3
-6. Configure environment variables
+```
 
-Create:
+## 6. Configure environment variables
 
-.env
+Create a `.env` file:
 
-and configure:
-
+``` env
 TAVILY_API_KEY=your_tavily_key
 
 SUPABASE_URL=your_supabase_url
@@ -554,173 +729,212 @@ REDIS_URL=redis://localhost:6379
 
 LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
 LANGFUSE_SECRET_KEY=your_langfuse_secret_key
+```
 
-Never commit .env to GitHub.
+> **Never commit `.env` or API keys to GitHub.**
 
-7. Start FastAPI
+## 7. Start the backend
+
+``` powershell
 uvicorn app.api:app --reload
-8. Start Streamlit
+```
 
-In another terminal:
+## 8. Start the frontend
 
+Open another terminal:
+
+``` powershell
 python -m streamlit run app\streamlit_app.py
-Example API
-Health check
-GET /health
+```
 
-Response:
+------------------------------------------------------------------------
 
-{
-  "status": "ok"
-}
-Research
-POST /research
+# 💡 Important Engineering Decisions
 
-Request:
+### Why LangGraph?
 
-{
-  "question": "Analyze the Indian AI startup market and identify promising companies."
-}
+LangGraph provides explicit stateful workflow orchestration for the
+research pipeline.
 
-The response contains:
+It allows individual stages to communicate through a shared research
+state.
 
-final report
-confidence score
-verified source information
-latency
-token usage
-cost tracking information
-Engineering Decisions
-Why Qwen3 locally?
+### Why Qwen3 8B?
 
-To avoid depending on a paid LLM API for the main model and to demonstrate local LLM deployment.
+It provides a capable local generative model without requiring the
+primary application to depend on a paid hosted LLM API.
 
-Why BGE-M3?
+### Why Ollama?
 
-To generate local semantic embeddings for RAG.
+Ollama provides a simple local runtime for running the LLM and embedding
+model.
 
-Why pgvector?
+### Why BGE-M3?
 
-To combine relational metadata with vector similarity search inside PostgreSQL.
+BGE-M3 provides local text embeddings that can be used for semantic
+retrieval.
 
-Why LangGraph?
+### Why PostgreSQL + pgvector?
 
-To explicitly represent the multi-stage research workflow and state transitions.
+It combines normal relational storage with vector similarity search.
 
-Why FastAPI?
+### Why Supabase?
 
-To separate the AI research engine from the UI and expose it through an API.
+Supabase provides managed PostgreSQL and pgvector infrastructure
+suitable for a portfolio project.
 
-Why Streamlit?
+### Why FastAPI?
 
-To build the frontend entirely in Python without introducing a separate React/JavaScript application.
+FastAPI separates the AI pipeline from the presentation layer and
+provides a clean API boundary.
 
-Why deterministic validation?
+### Why Streamlit?
 
-Because an LLM should not be the only component deciding whether its own output is correct.
+Streamlit provides a Python-based frontend without requiring a separate
+React/JavaScript application.
 
-What Makes This Different From a Basic Chatbot?
-Basic LLM App	This Project
-Single prompt	Multi-stage workflow
-One LLM call	Multiple specialized stages
-No explicit research plan	Planner agent
-No evidence pipeline	Web research + verification
-No semantic memory	RAG + pgvector
-Free-form output	Structured outputs
-No scoring methodology	Evidence-aware scoring
-No validation	Hallucination validation
-No confidence measurement	Evidence-based confidence
-No system metrics	Tokens + latency
-Chat UI only	FastAPI + Streamlit
-Hosted model dependency	Local Qwen3 option
-Current Limitations
+### Why deterministic validation?
 
-This project intentionally prioritizes a practical portfolio architecture over production-scale infrastructure.
+Because the system should not rely entirely on an LLM to validate its
+own output.
+
+------------------------------------------------------------------------
+
+# 🆚 Basic LLM App vs This Project
+
+  Basic LLM Application     Agentic Research Platform
+  ------------------------- -----------------------------
+  Single prompt             Multi-stage workflow
+  One model call            Multiple specialized stages
+  No research planning      Planner
+  No external evidence      Web research
+  No retrieval layer        RAG
+  No vector database        pgvector
+  Free-form output          Structured output
+  No evidence methodology   Evidence-aware scoring
+  No confidence layer       Evidence-based confidence
+  No validation             Hallucination validation
+  No observability          Tokens + latency
+  Chat-only interface       API + frontend
+
+------------------------------------------------------------------------
+
+# 📈 Current Limitations
+
+This project is designed as a strong portfolio/fresher project rather
+than a production-scale enterprise platform.
 
 Current limitations include:
 
-Local Qwen3 8B can be computationally expensive.
-BGE-M3 embedding generation also consumes local resources.
-Tavily depends on API availability and quota.
-Demo/fallback evidence is not equivalent to independently verified web evidence.
-The confidence score is a project-specific heuristic rather than a statistically calibrated probability.
-Hallucination validation checks structural consistency; it does not guarantee factual perfection.
-Redis is optional and requires a running Redis server for caching.
-Hosted deployment cannot assume that the local Ollama models are available.
-Future Improvements
+-   Local Qwen3 8B can be computationally expensive.
+-   BGE-M3 embeddings also consume local resources.
+-   Tavily depends on API availability and usage limits.
+-   Demo/fallback evidence is not equivalent to independently verified
+    web evidence.
+-   Confidence is a project-specific evidence heuristic, not a
+    statistically calibrated probability.
+-   Hallucination validation checks consistency and grounding signals;
+    it cannot guarantee factual perfection.
+-   Redis is optional and requires a running Redis server for caching.
+-   Hosted deployment requires a different LLM strategy if local Ollama
+    models are unavailable.
 
-Potential extensions include:
+------------------------------------------------------------------------
 
-query rewriting
-retrieval reranking
-claim-to-source citation mapping
-stronger source verification
-evaluation datasets
-automated evaluation metrics
-calibrated confidence scoring
-asynchronous research workers
-hosted LLM support
-background research jobs
-richer observability dashboards
-production deployment architecture
-What I Learned
+# 🚀 Future Improvements
 
-Building this project helped me work with:
+Possible future extensions:
 
-Agentic AI architecture
-LLM orchestration
-LangGraph state management
-Structured LLM outputs
-RAG
-Embeddings
-Vector databases
-Semantic search
-PostgreSQL
-pgvector
-Web research APIs
-Evidence validation
-Hallucination mitigation
-FastAPI
-Streamlit
-Redis
-Observability
-Token and latency tracking
-AI system design
+-   query rewriting
+-   retrieval reranking
+-   claim-to-source citation mapping
+-   stronger source verification
+-   automated evaluation datasets
+-   retrieval evaluation metrics
+-   calibrated confidence scoring
+-   asynchronous research jobs
+-   background workers
+-   hosted LLM support
+-   richer Langfuse dashboards
+-   production deployment architecture
 
-The most important lesson was that building an AI application is not just about calling an LLM.
+------------------------------------------------------------------------
 
-The engineering challenge is designing the system around the LLM.
+# 🎓 What This Project Demonstrates
 
-Portfolio Highlight
+This project demonstrates practical experience with:
 
-Built an end-to-end agentic research system that combines LLM reasoning, web retrieval, RAG, vector search, deterministic scoring, source verification, and post-generation validation into a single research workflow.
+-   **Agentic AI**
+-   **Generative AI**
+-   **LLM orchestration**
+-   **LangGraph**
+-   **RAG**
+-   **Embeddings**
+-   **Vector databases**
+-   **Semantic search**
+-   **PostgreSQL**
+-   **pgvector**
+-   **Web research**
+-   **Structured outputs**
+-   **Evidence validation**
+-   **Hallucination mitigation**
+-   **FastAPI**
+-   **Streamlit**
+-   **Redis**
+-   **Observability**
+-   **Token tracking**
+-   **Latency measurement**
+-   **AI system design**
 
-Author
+------------------------------------------------------------------------
 
-Aayesha Singh
+# 💼 Resume-Level Project Summary
 
-Data Science Engineering | AI/ML | Generative AI | Agentic AI
+> **Built an end-to-end Agentic Research Intelligence Platform using
+> LangGraph, Qwen3, RAG, BGE-M3, PostgreSQL/pgvector, Tavily, FastAPI,
+> and Streamlit. Designed a multi-stage research workflow with planning,
+> web research, source verification, semantic retrieval, evidence-aware
+> scoring, confidence estimation, hallucination validation, and LLM
+> observability.**
 
-If you want to understand the project deeply
+------------------------------------------------------------------------
 
-The repository's architecture is intentionally designed so that each major AI capability has a distinct responsibility:
+# 🗣️ Interview Explanation
 
-PLAN
- ↓
-SEARCH
- ↓
-VERIFY
- ↓
-INDEX
- ↓
-RETRIEVE
- ↓
-QUALIFY
- ↓
-SCORE
- ↓
-SYNTHESIZE
- ↓
-VALIDATE
+If an interviewer asks:
 
-That is the core story of the project.
+> **"Explain your project."**
+
+A concise answer is:
+
+> I built an Agentic Research Intelligence Platform that automates
+> complex research questions using a multi-stage AI workflow. Instead of
+> directly sending a question to an LLM, I use LangGraph to coordinate
+> planning, web research, source verification, RAG indexing, retrieval,
+> company qualification, evidence-based scoring, synthesis, and final
+> validation. Qwen3 8B runs locally through Ollama, while BGE-M3
+> generates embeddings that are stored in PostgreSQL with pgvector. The
+> system also tracks confidence, token usage and latency, and uses
+> deterministic validation to detect inconsistencies in the generated
+> report. FastAPI exposes the backend and Streamlit provides the user
+> interface.
+
+------------------------------------------------------------------------
+
+# 👩‍💻 Author
+
+### Aayesha Singh
+
+**Data Science Engineering \| AI/ML \| Generative AI \| Agentic AI**
+
+GitHub: [Aayesha2103](https://github.com/Aayesha2103)
+
+------------------------------------------------------------------------
+
+## ⭐ If you found this project interesting
+
+Feel free to explore the architecture and implementation.
+
+**The main idea behind this project:**
+
+> ### Don't just ask an LLM for an answer. Build a system around it.
