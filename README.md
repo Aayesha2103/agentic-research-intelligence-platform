@@ -6,7 +6,7 @@
 > hallucination validation.**
 
 ```{=html}
-<p align="center">
+
 ```
 ![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Orchestration-1C3C3C)
@@ -19,7 +19,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-FF4B4B?logo=streamlit&logoColor=white)
 
 ```{=html}
-</p>
+
 ```
 
 ------------------------------------------------------------------------
