@@ -48,13 +48,3 @@ Final Report
 > **"Analyze the Indian AI startup market and identify promising companies."**
 
 The system plans the research, gathers evidence, retrieves relevant information, scores companies based on available evidence, generates a report, and validates the final output.
-
-## 💼 Resume Summary
-
-**Built an end-to-end Agentic Research Intelligence Platform using LangGraph, Qwen3, RAG, BGE-M3, PostgreSQL/pgvector, Tavily, FastAPI, and Streamlit, with source verification, evidence-aware scoring, confidence estimation, hallucination validation, and AI observability.**
-
-## 👩‍💻 Author
-
-**Aayesha Singh** — Data Science Engineering | AI/ML | Generative AI | Agentic AI
-
-[GitHub](https://github.com/Aayesha2103)
