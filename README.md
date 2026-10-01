@@ -48,3 +48,22 @@ Final Report
 > **"Analyze the Indian AI startup market and identify promising companies."**
 
 The system plans the research, gathers evidence, retrieves relevant information, scores companies based on available evidence, generates a report, and validates the final output.
+
+## 🔮 Future Improvements
+
+- 🌐 Build a more advanced web interface
+- 🔄 Add hybrid search and reranking
+- 📊 Add retrieval evaluation metrics
+- 🧠 Add stronger conversation history and memory
+- 🐳 Dockerize the application
+- ☁️ Deploy the application
+- 🔗 Add richer source and citation tracking
+- ⚙️ Improve asynchronous/background processing
+
+---
+
+<p align="center">
+
+⭐ **If you found this project interesting, consider giving it a star!**
+
+</p>
